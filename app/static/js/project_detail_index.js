@@ -27,6 +27,19 @@ document.addEventListener('DOMContentLoaded', function () {
 function initializeApp() {
     console.log('=== 初始化应用 ===');
 
+    // 新增：初始化Bootstrap模态框
+    const createTableModalElement = document.getElementById('createTableModal');
+    if (createTableModalElement) {
+        createTableModal = new bootstrap.Modal(createTableModalElement);
+    } else {
+        console.error('创建表格模态框元素未找到');
+    }
+
+    const renameSheetModalElement = document.getElementById('renameSheetModal');
+    if (renameSheetModalElement) {
+        renameSheetModal = new bootstrap.Modal(renameSheetModalElement);
+    }
+
     // 简化侧边栏切换
     const sidebarToggle = document.getElementById('sidebarToggle');
     if (sidebarToggle) {
@@ -67,19 +80,49 @@ function initializeApp() {
 function showCreateTableModal() {
     // 生成默认表格名称
     const defaultName = `表格${workbookData.sheets.length + 1}`;
-    document.getElementById('tableNameInput').value = defaultName;
+
+    // 修改：添加防御性检查
+    const tableNameInput = document.getElementById('tableNameInput');
+    if (!tableNameInput) {
+        console.error('tableNameInput元素未找到');
+        showMessage('页面元素加载异常，请刷新页面重试', 'error');
+        return;
+    }
+
+    tableNameInput.value = defaultName;
+
+    // 修改：确保模态框已初始化
+    if (!createTableModal) {
+        const modalElement = document.getElementById('createTableModal');
+        if (modalElement) {
+            createTableModal = new bootstrap.Modal(modalElement);
+        } else {
+            console.error('createTableModal元素未找到');
+            showMessage('模态框初始化失败，请刷新页面重试', 'error');
+            return;
+        }
+    }
+
     createTableModal.show();
 
-    // 模态框显示后自动聚焦到输入框
+    // 修改：添加防御性检查
     setTimeout(() => {
-        document.getElementById('tableNameInput').focus();
-        document.getElementById('tableNameInput').select();
+        if (tableNameInput) {
+            tableNameInput.focus();
+            tableNameInput.select();
+        }
     }, 500);
 }
 
 // 确认创建表格
 function confirmCreateTable() {
     const tableNameInput = document.getElementById('tableNameInput');
+    if (!tableNameInput) {
+        showMessage('页面元素加载异常，请刷新页面重试', 'error');
+        return;
+    }
+
+
     const newTableName = tableNameInput.value.trim();
 
     if (newTableName === '') {
@@ -314,13 +357,37 @@ function getActiveSheet() {
 function showRenameSheetModal(sheetIndex) {
     sheetToRename = sheetIndex;
     const sheet = workbookData.sheets[sheetIndex];
-    document.getElementById('sheetNameInput').value = sheet.name;
+
+    // 修改：添加防御性检查
+    const sheetNameInput = document.getElementById('sheetNameInput');
+    if (!sheetNameInput) {
+        console.error('sheetNameInput元素未找到');
+        showMessage('页面元素加载异常，请刷新页面重试', 'error');
+        return;
+    }
+
+    sheetNameInput.value = sheet.name;
+
+    // 修改：确保模态框已初始化
+    if (!renameSheetModal) {
+        const modalElement = document.getElementById('renameSheetModal');
+        if (modalElement) {
+            renameSheetModal = new bootstrap.Modal(modalElement);
+        } else {
+            console.error('renameSheetModal元素未找到');
+            showMessage('模态框初始化失败，请刷新页面重试', 'error');
+            return;
+        }
+    }
+
     renameSheetModal.show();
 
-    // 模态框显示后自动聚焦到输入框
+    // 修改：添加防御性检查
     setTimeout(() => {
-        document.getElementById('sheetNameInput').focus();
-        document.getElementById('sheetNameInput').select();
+        if (sheetNameInput) {
+            sheetNameInput.focus();
+            sheetNameInput.select();
+        }
     }, 500);
 }
 

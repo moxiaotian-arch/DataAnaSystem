@@ -108,7 +108,24 @@
 {% block modals %}
 <!-- 创建表格模态框 -->
 <div class="modal fade" id="createTableModal" tabindex="-1" aria-labelledby="createTableModalLabel" aria-hidden="true">
-    <!-- 模态框内容保持不变 -->
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createTableModalLabel">创建新表格</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="tableNameInput" class="form-label">表格名称</label>
+                    <input type="text" class="form-control" id="tableNameInput" placeholder="请输入表格名称">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="confirmCreateTable()">确认创建</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- 重命名表格模态框 -->
