@@ -1,0 +1,353 @@
+{% extends "./index.html" %}
+
+{% block title %}数据分析系统 - 创建项目{% endblock %}
+
+{% block page_title %}创建项目{% endblock %}
+
+{% block project_add_active %}active{% endblock %}
+
+{% block extra_css %}
+<!-- 项目新增页面特有样式 -->
+<link href="https://cdn.bootcdn.net/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.bootcdn.net/ajax/libs/select2-bootstrap-5-theme/1.3.0/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+<style>
+    .select2-container--bootstrap-5 .select2-selection--multiple {
+        min-height: 38px;
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        margin-left: 10px;
+    }
+    
+    .debug-info {
+        font-size: 0.8rem;
+        color: #6c757d;
+        background-color: #f8f9fa;
+        padding: 5px;
+        border-radius: 3px;
+        margin-top: 5px;
+    }
+    
+    .form-section {
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 25px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+    }
+    
+    .required-label::after {
+        content: " *";
+        color: red;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 创建项目页面内容 -->
+<div id="project-add-page" class="page-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>创建新项目</h3>
+        <a href="/data/projects" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>返回项目列表
+        </a>
+    </div>
+
+    <!-- 创建项目表单 -->
+    <div class="content-card">
+        <div class="card-header">
+            <h5 class="mb-0">项目信息</h5>
+        </div>
+        <div class="card-body">
+            <form id="projectAddForm">
+                <div class="mb-3">
+                    <label for="name" class="form-label required-label">项目名称</label>
+                    <input type="text" class="form-control" id="name" name="name"
+                           placeholder="请输入项目名称" required maxlength="100">
+                    <div class="form-text">项目名称应简洁明了，便于识别，最多100个字符</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">项目描述</label>
+                    <textarea class="form-control" id="description" name="description"
+                              rows="4" placeholder="请详细描述项目目标、范围和预期成果..." maxlength="500"></textarea>
+                    <div class="form-text">详细的项目描述有助于团队成员理解项目需求，最多500个字符</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="user_ids" class="form-label required-label">
+                        归属用户
+                        <span id="userLoading" class="spinner-border spinner-border-sm text-primary d-none loading-spinner" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </span>
+                    </label>
+                    <select class="form-select" id="user_ids" name="user_ids" multiple required>
+                        <option value="" disabled>加载用户列表中...</option>
+                    </select>
+                    <div class="form-text">选择项目的归属用户（可多选，至少选择一个）</div>
+                    <div id="debugInfo" class="debug-info">等待初始化...</div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary" onclick="window.history.back()">取消</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <span class="spinner-border spinner-border-sm d-none" id="submitSpinner" role="status"></span>
+                        创建项目
+                    </button>
+                </div>
+            </form>
+            
+            <!-- 消息显示区域 -->
+            <div id="message" class="mt-4"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/select2/4.0.13/js/select2.full.min.js"></script>
+
+<script>
+    // 调试信息显示
+    function showDebugInfo(info) {
+        const debugDiv = document.getElementById('debugInfo');
+        debugDiv.innerHTML = info;
+        console.log('调试信息:', info);
+    }
+
+    // 显示消息
+    function showMessage(message, type) {
+        const messageDiv = document.getElementById('message');
+        const alertClass = type === 'danger' ? 'alert-danger' :
+                          type === 'success' ? 'alert-success' : 'alert-warning';
+
+        messageDiv.innerHTML = `
+            <div class="alert ${alertClass} alert-dismissible fade show">
+                <strong>${type === 'danger' ? '错误' : type === 'success' ? '成功' : '警告'}:</strong> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        // 5秒后自动隐藏
+        setTimeout(() => {
+            const alert = messageDiv.querySelector('.alert');
+            if (alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
+        }, 5000);
+    }
+
+    // 检查jQuery是否加载成功
+    function checkJQuery() {
+        if (typeof jQuery === 'undefined') {
+            showDebugInfo('错误: jQuery未加载成功，请检查网络连接');
+            showMessage('jQuery加载失败，请刷新页面重试', 'danger');
+            return false;
+        }
+        showDebugInfo('jQuery加载成功，版本: ' + jQuery.fn.jquery);
+        return true;
+    }
+
+    // 加载用户列表
+    function loadUsers() {
+        console.log('开始加载用户列表...');
+        showDebugInfo('开始加载用户列表...');
+
+        // 显示加载状态
+        $('#userLoading').removeClass('d-none');
+        $('#user_ids').prop('disabled', true);
+
+        // 添加超时保护
+        const timeoutId = setTimeout(() => {
+            console.warn('加载超时，强制清除加载状态');
+            showDebugInfo('加载超时（10秒），请检查网络连接');
+            $('#userLoading').addClass('d-none');
+            $('#user_ids').prop('disabled', false);
+
+            // 设置测试数据
+            const userSelect = $('#user_ids');
+            userSelect.empty();
+            userSelect.append(new Option('测试用户1 (test1@example.com)', '1'));
+            userSelect.append(new Option('测试用户2 (test2@example.com)', '2'));
+            userSelect.trigger('change');
+            showDebugInfo('已设置测试数据（实际数据加载失败）');
+            showMessage('用户列表加载超时，已使用测试数据', 'warning');
+        }, 10000);
+
+        // 发送请求
+        fetch('/data/api/users/select')
+            .then(response => {
+                clearTimeout(timeoutId);
+                console.log('响应状态:', response.status, response.statusText);
+                showDebugInfo(`响应状态: ${response.status} ${response.statusText}`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP错误! 状态码: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                clearTimeout(timeoutId);
+                console.log('收到响应数据:', data);
+                showDebugInfo(`收到响应数据: 成功获取${data.users ? data.users.length : 0}个用户`);
+
+                // 隐藏加载状态
+                $('#userLoading').addClass('d-none');
+                $('#user_ids').prop('disabled', false);
+
+                if (data.success) {
+                    const userSelect = $('#user_ids');
+                    userSelect.empty();
+
+                    if (data.users && data.users.length > 0) {
+                        data.users.forEach(user => {
+                            userSelect.append(new Option(
+                                `${user.username} (${user.email})`,
+                                user.id
+                            ));
+                        });
+                        console.log(`成功加载 ${data.users.length} 个用户`);
+                        showDebugInfo(`成功加载 ${data.users.length} 个用户`);
+                    } else {
+                        userSelect.append(new Option('暂无用户', '', true, true));
+                        console.warn('用户列表为空');
+                        showDebugInfo('用户列表为空');
+                        showMessage('用户列表为空，请先创建用户', 'warning');
+                    }
+
+                    // 刷新Select2
+                    userSelect.trigger('change');
+                } else {
+                    console.error('加载用户列表失败:', data.message);
+                    showDebugInfo(`加载失败: ${data.message}`);
+                    showMessage(`加载失败: ${data.message}`, 'danger');
+                }
+            })
+            .catch(error => {
+                clearTimeout(timeoutId);
+                console.error('加载用户列表出错:', error);
+                showDebugInfo(`加载出错: ${error.message}`);
+                showMessage(`加载出错: ${error.message}`, 'danger');
+
+                // 隐藏加载状态
+                $('#userLoading').addClass('d-none');
+                $('#user_ids').prop('disabled', false);
+            });
+    }
+
+    // 页面加载完成后执行
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log('文档加载完成，开始初始化...');
+        showDebugInfo('文档加载完成，开始初始化...');
+
+        // 检查jQuery是否加载成功
+        if (!checkJQuery()) {
+            return;
+        }
+
+        try {
+            // 初始化Select2
+            $('#user_ids').select2({
+                placeholder: '请选择用户',
+                theme: 'bootstrap-5',
+                width: '100%',
+                allowClear: true,
+                closeOnSelect: false
+            });
+            console.log('Select2初始化成功');
+            showDebugInfo('Select2初始化成功');
+
+            // 延迟加载用户列表
+            setTimeout(() => {
+                loadUsers();
+            }, 500);
+
+        } catch (error) {
+            console.error('初始化错误:', error);
+            showDebugInfo(`初始化错误: ${error.message}`);
+            showMessage(`初始化错误: ${error.message}`, 'danger');
+        }
+
+        // 表单提交处理
+        document.getElementById('projectAddForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const spinner = document.getElementById('submitSpinner');
+
+            // 显示加载状态
+            spinner.classList.remove('d-none');
+            submitBtn.disabled = true;
+
+            // 获取选中的用户ID
+            const selectedUserIds = $('#user_ids').val() || [];
+
+            // 验证是否选择了用户
+            if (selectedUserIds.length === 0) {
+                showMessage('请至少选择一个归属用户', 'danger');
+                spinner.classList.add('d-none');
+                submitBtn.disabled = false;
+                return;
+            }
+
+            // 验证项目名称
+            const projectName = document.getElementById('name').value.trim();
+            if (!projectName) {
+                showMessage('请输入项目名称', 'danger');
+                spinner.classList.add('d-none');
+                submitBtn.disabled = false;
+                return;
+            }
+
+            const data = {
+                name: projectName,
+                description: document.getElementById('description').value.trim(),
+                user_ids: selectedUserIds
+            };
+
+            console.log('提交数据:', data);
+            showDebugInfo('提交项目数据...');
+
+            fetch('/data/api/project/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP错误! 状态码: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showMessage(`项目创建成功: ${data.message}`, 'success');
+                    document.getElementById('projectAddForm').reset();
+                    $('#user_ids').val(null).trigger('change');
+
+                    // 3秒后跳转到项目列表
+                    setTimeout(() => {
+                        window.location.href = '/data/project';
+                    }, 3000);
+                } else {
+                    showMessage(`创建失败: ${data.message}`, 'danger');
+                }
+            })
+            .catch(error => {
+                showMessage(`网络错误: ${error.message}`, 'danger');
+            })
+            .finally(() => {
+                // 恢复按钮状态
+                spinner.classList.add('d-none');
+                submitBtn.disabled = false;
+            });
+        });
+    });
+</script>
+{% endblock %}

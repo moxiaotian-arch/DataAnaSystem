@@ -1,0 +1,252 @@
+{% extends "./Project_detail/base.html" %}
+
+{% block title %}在线表格数据分析系统{% endblock %}
+
+{% block workspace_name %}在线表格工作台{% endblock %}
+
+{% block data_table_active %}active{% endblock %}
+{% block data_analysis_active %}{% endblock %}
+{% block data_reporting_active %}{% endblock %}
+
+{% block data_reporting_link %}/data/projects/{{ project_id }}/chart-table{% endblock %}
+
+{% block page_title %}数据表格{% endblock %}
+{% block project_name %}项目{{ project_id }}{% endblock %}  <!-- 修改：显示实际项目ID -->
+
+{% block project_title %}在线表格数据分析系统{% endblock %}
+{% block project_description %}创建、编辑和分析您的数据表格{% endblock %}
+{% block project_stats %}当前表格: <span id="table-status">未保存</span>{% endblock %}
+
+<input type="hidden" id="project-id" value="{{ project_id }}">
+
+{% block action_buttons %}
+<button class="btn btn-light" onclick="saveWorkbookData()">
+    <i class="bi bi-check-circle me-1"></i>保存工作簿
+</button>
+<button class="btn btn-outline-light" onclick="exportWorkbookData()">
+    <i class="bi bi-download me-1"></i>导出数据
+</button>
+{% endblock %}
+
+{% block main_content %}
+<!-- 数据表格内容 -->
+<div id="data-views-content">
+    <div class="content-card">
+        <div class="card-header">
+            <h5 class="mb-0">数据表格编辑器</h5>
+        </div>
+        <div class="card-body">
+            <!-- Sheet页签区域 -->
+            <div class="sheet-tabs" id="sheet-tabs-container">
+                <!-- Sheet页签将通过JavaScript动态生成 -->
+            </div>
+
+            <!-- 操作按钮区域 -->
+            <div class="table-actions">
+                <button type="button" class="btn btn-primary" onclick="showCreateTableModal()">
+                    <i class="bi bi-plus-circle me-1"></i>创建新表格
+                </button>
+                <button type="button" class="btn btn-success" onclick="addColumn()">
+                    <i class="bi bi-plus-square me-1"></i>添加列
+                </button>
+                <button type="button" class="btn btn-success" onclick="addRow()">
+                    <i class="bi bi-plus-square me-1"></i>添加行
+                </button>
+                <button type="button" class="btn btn-warning" onclick="deleteSelectedColumn()">
+                    <i class="bi bi-dash-square me-1"></i>删除选中列
+                </button>
+                <button type="button" class="btn btn-warning" onclick="deleteSelectedRow()">
+                    <i class="bi bi-dash-square me-1"></i>删除选中行
+                </button>
+                <!-- 新增：数据合并按钮 - 放在删除选中列之后 -->
+                <button type="button" class="btn btn-purple" onclick="showMergeTablesModal()">
+                    <i class="bi bi-arrow-left-right me-1"></i>数据合并
+                </button>
+                <button type="button" class="btn btn-info" onclick="importTableData()">
+                    <i class="bi bi-upload me-1"></i>导入数据
+                </button>
+            </div>
+
+            <!-- 表格容器 -->
+            <div class="excel-table-container" id="table-container">
+                <!-- 空表格提示 -->
+                <div class="empty-table" id="empty-table-message">
+                    <i class="bi bi-table"></i>
+                    <h4>工作簿为空，请创建表格</h4>
+                    <p>点击"创建新表格"按钮开始使用</p>
+                </div>
+                <table class="excel-table" id="data-table" style="display: none;">
+                    <thead id="table-header">
+                    <!-- 表头将通过JavaScript动态生成 -->
+                    </thead>
+                    <tbody id="table-body">
+                    <!-- 表格内容将通过JavaScript动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-info">
+                <span id="table-stats">行数: 0, 列数: 0</span>
+                <span class="ms-3" id="selected-cell-info">选中单元格: 无</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 其他页面内容（暂时隐藏） -->
+<div id="data-analysis-content" style="display: none;">
+    <!-- 内容保持不变 -->
+</div>
+
+<div id="data-reporting-content" style="display: none;">
+    <!-- 内容保持不变 -->
+</div>
+{% endblock %}
+
+{% block footer_mode %}在线表格模式{% endblock %}
+
+{% block modals %}
+<!-- 创建表格模态框 -->
+<div class="modal fade" id="createTableModal" tabindex="-1" aria-labelledby="createTableModalLabel" aria-hidden="true">
+    <!-- 模态框内容保持不变 -->
+</div>
+
+<!-- 重命名表格模态框 -->
+<div class="modal fade" id="renameSheetModal" tabindex="-1" aria-labelledby="renameSheetModalLabel" aria-hidden="true">
+    <!-- 模态框内容保持不变 -->
+</div>
+
+<!-- 数据合并模态框 - 第一步：选择表格 -->
+<div class="modal fade" id="mergeTablesModal" tabindex="-1" aria-labelledby="mergeTablesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="mergeTablesModalLabel">数据合并 - 选择表格</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <!-- 左侧：待合入表格 -->
+                    <div class="col-md-6">
+                        <h6>待合入表格（可多选）</h6>
+                        <div class="table-list-container border p-2" style="height: 300px; overflow-y: auto;">
+                            <div id="source-tables-list">
+                                <!-- 通过JavaScript动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：合入目标表格 -->
+                    <div class="col-md-6">
+                        <h6>合入目标表格（单选）</h6>
+                        <div class="table-list-container border p-2" style="height: 300px; overflow-y: auto;">
+                            <div id="target-tables-list">
+                                <!-- 通过JavaScript动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmMergeSelection" disabled>下一步</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 数据合并模态框 - 第二步：配置合并规则 -->
+<div class="modal fade" id="mergeConfigModal" tabindex="-1" aria-labelledby="mergeConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="mergeConfigModalLabel">数据合并 - 配置合并规则</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <!-- 左侧：表名显示 -->
+                    <div class="col-md-4">
+                        <h6>表格列表</h6>
+                        <div class="table-names-container border p-2" style="height: 200px; overflow-y: auto;">
+                            <div id="table-names-list">
+                                <!-- 通过JavaScript动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 中间：列头选择 -->
+                    <div class="col-md-4">
+                        <h6>列头选择</h6>
+                        <div class="columns-container border p-2" style="height: 200px; overflow-y: auto;">
+                            <div id="columns-list">
+                                <!-- 通过JavaScript动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：操作按钮 -->
+                    <div class="col-md-4">
+                        <h6>操作</h6>
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-outline-primary" id="add-match-column">添加匹配列</button>
+                            <button type="button" class="btn btn-outline-success" id="add-merge-column">添加合并列</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 匹配列显示区域 -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <h6>匹配列配置</h6>
+                        <div class="border p-2">
+                            <div id="match-columns-display">
+                                <p class="text-muted mb-0">暂无匹配列配置</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 待合并列显示区域 -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <h6>待合并列配置</h6>
+                        <div class="border p-2">
+                            <div id="merge-columns-display">
+                                <p class="text-muted mb-0">暂无待合并列配置</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 新表配置 -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="createNewTable">
+                            <label class="form-check-label" for="createNewTable">
+                                创建新表格
+                            </label>
+                        </div>
+                        <div class="mb-3" id="newTableNameContainer" style="display: none;">
+                            <label for="newTableName" class="form-label">新表名称</label>
+                            <input type="text" class="form-control" id="newTableName" placeholder="请输入新表名称">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="backToSelection">上一步</button>
+                <button type="button" class="btn btn-primary" id="confirmMergeConfig">确认合并</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/xlsx.full.min.js"></script>
+<script src="/static/js/chart_table.js"></script>
+<script src="/static/js/project_detail_index.js"></script>
+{% endblock %}

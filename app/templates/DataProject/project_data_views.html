@@ -1,0 +1,289 @@
+{% extends "./index.html" %}
+
+{% block title %}数据分析系统 - 数据视图{% endblock %}
+
+{% block page_title %}数据视图{% endblock %}
+
+{% block project_list_active %}active{% endblock %}
+
+{% block content %}
+<!-- 数据视图页面内容 -->
+<div id="data-views-page" class="page-content">
+    <!-- 页面头部 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="page-title">数据视图</h3>
+            <p class="text-muted mb-0" id="project-info">项目: 加载中...</p>
+        </div>
+        <div class="btn-group">
+            <a href="/data/project/{{ project_id }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>返回项目
+            </a>
+            <button class="btn btn-primary coming-soon">
+                <i class="bi bi-plus-circle me-1"></i>新建视图
+            </button>
+        </div>
+    </div>
+
+    <!-- 数据视图统计 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="content-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-bar-chart text-primary" style="font-size: 2rem;"></i>
+                    <h4 class="mt-2" id="total-views">0</h4>
+                    <p class="text-muted">总视图数</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="content-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-clock-history text-warning" style="font-size: 2rem;"></i>
+                    <h4 class="mt-2" id="recent-views">0</h4>
+                    <p class="text-muted">最近更新</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="content-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-eye text-success" style="font-size: 2rem;"></i>
+                    <h4 class="mt-2" id="active-views">0</h4>
+                    <p class="text-muted">活跃视图</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="content-card">
+                <div class="card-body text-center">
+                    <i class="bi bi-pie-chart text-info" style="font-size: 2rem;"></i>
+                    <h4 class="mt-2" id="chart-views">0</h4>
+                    <p class="text-muted">图表视图</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据视图列表 -->
+    <div class="content-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">数据视图列表</h5>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary coming-soon" title="刷新">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+                <button class="btn btn-outline-secondary coming-soon" title="筛选">
+                    <i class="bi bi-funnel"></i>
+                </button>
+                <button class="btn btn-outline-secondary coming-soon" title="排序">
+                    <i class="bi bi-sort-alpha-down"></i>
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <!-- 加载提示 -->
+            <div id="loadingSpinner" class="loading-spinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <p class="mt-2 ms-2">正在加载数据视图...</p>
+            </div>
+
+            <!-- 数据视图列表容器 -->
+            <div id="dataViewsList" class="p-3">
+                <!-- 数据视图卡片将通过JavaScript动态生成 -->
+            </div>
+
+            <!-- 空状态提示 -->
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <i class="bi bi-bar-chart" style="font-size: 3rem; color: #6c757d;"></i>
+                <h4 class="mt-3">暂无数据视图</h4>
+                <p class="text-muted">还没有创建任何数据视图，点击"新建视图"按钮开始创建</p>
+                <button class="btn btn-primary mt-3 coming-soon">创建第一个数据视图</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 页面加载完成后执行
+    document.addEventListener('DOMContentLoaded', function () {
+        loadDataViews({{ project_id }});
+    });
+
+    // 加载数据视图
+    function loadDataViews(projectId) {
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const dataViewsList = document.getElementById('dataViewsList');
+        const emptyState = document.getElementById('emptyState');
+
+        // 显示加载提示，隐藏其他内容
+        loadingSpinner.style.display = 'flex';
+        dataViewsList.innerHTML = '';
+        emptyState.style.display = 'none';
+
+        fetch(`/data/api/project/${projectId}/data-views`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应不正常');
+                }
+                return response.json();
+            })
+            .then(data => {
+                loadingSpinner.style.display = 'none';
+
+                if (data.success) {
+                    // 更新项目信息
+                    document.getElementById('project-info').textContent = `项目: ${data.project.name}`;
+                    document.title = `数据分析系统 - ${data.project.name} - 数据视图`;
+
+                    // 更新页面标题
+                    document.querySelector('.page-title').textContent = `${data.project.name} - 数据视图`;
+
+                    // 更新统计信息
+                    updateDataViewsStats(data.data_views);
+
+                    // 渲染数据视图列表
+                    if (data.data_views && data.data_views.length > 0) {
+                        renderDataViews(data.data_views);
+                    } else {
+                        emptyState.style.display = 'block';
+                    }
+                } else {
+                    emptyState.style.display = 'block';
+                    throw new Error(data.message || '加载数据视图失败');
+                }
+            })
+            .catch(error => {
+                console.error('加载数据视图失败:', error);
+                loadingSpinner.style.display = 'none';
+                emptyState.style.display = 'block';
+                showMessage('加载数据视图失败: ' + error.message, 'error');
+
+                // 设置默认标题
+                document.querySelector('.page-title').textContent = '数据视图';
+                document.getElementById('project-info').textContent = '项目: 加载失败';
+            });
+    }
+
+    // 更新数据视图统计信息
+    function updateDataViewsStats(dataViews) {
+        document.getElementById('total-views').textContent = dataViews.length;
+
+        // 计算最近7天内更新的视图数量
+        const recentDate = new Date();
+        recentDate.setDate(recentDate.getDate() - 7);
+        const recentViews = dataViews.filter(view => {
+            try {
+                return new Date(view.updated_at) > recentDate;
+            } catch (error) {
+                console.error('日期解析错误:', error);
+                return false;
+            }
+        }).length;
+        document.getElementById('recent-views').textContent = recentViews;
+
+        // 计算活跃视图（假设类型为chart和metric的为活跃视图）
+        const activeViews = dataViews.filter(view =>
+            view.type === 'chart' || view.type === 'metric'
+        ).length;
+        document.getElementById('active-views').textContent = activeViews;
+
+        // 计算图表视图数量
+        const chartViews = dataViews.filter(view => view.type === 'chart').length;
+        document.getElementById('chart-views').textContent = chartViews;
+    }
+
+    // 渲染数据视图列表
+    function renderDataViews(dataViews) {
+        const dataViewsList = document.getElementById('dataViewsList');
+        dataViewsList.innerHTML = '';
+
+        dataViews.forEach(view => {
+            const viewCard = createDataViewCard(view);
+            dataViewsList.appendChild(viewCard);
+        });
+    }
+
+    // 创建数据视图卡片
+    function createDataViewCard(view) {
+        const col = document.createElement('div');
+        col.className = 'col-12 mb-3';
+
+        // 根据视图类型设置图标和颜色
+        const typeConfig = {
+            'chart': { icon: 'bi-bar-chart', color: 'primary' },
+            'table': { icon: 'bi-table', color: 'success' },
+            'metric': { icon: 'bi-speedometer2', color: 'warning' }
+        };
+
+        const config = typeConfig[view.type] || { icon: 'bi-file-earmark', color: 'secondary' };
+
+        col.innerHTML = `
+            <div class="card project-card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi ${config.icon} text-${config.color} me-2" style="font-size: 1.2rem;"></i>
+                                <h5 class="card-title mb-0">${escapeHtml(view.name)}</h5>
+                                <span class="badge bg-${config.color} ms-2">${getTypeText(view.type)}</span>
+                            </div>
+                            <p class="card-text text-muted">${view.description || '暂无描述'}</p>
+                            <div class="text-muted small">
+                                <span>创建: ${formatDateTime(view.created_at)}</span>
+                                <span class="ms-3">更新: ${formatDateTime(view.updated_at)}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="btn-group-sm">
+                                <button class="btn btn-outline-primary btn-sm" onclick="viewDataView(${view.id})">
+                                    <i class="bi bi-eye me-1"></i>查看
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm coming-soon">
+                                    <i class="bi bi-pencil me-1"></i>编辑
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm coming-soon">
+                                    <i class="bi bi-trash me-1"></i>删除
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return col;
+    }
+
+    // 获取类型文本
+    function getTypeText(type) {
+        const typeMap = {
+            'chart': '图表',
+            'table': '表格',
+            'metric': '指标'
+        };
+        return typeMap[type] || type;
+    }
+
+    // 格式化日期时间
+    function formatDateTime(dateString) {
+        if (!dateString) return '-';
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN');
+        } catch (error) {
+            console.error('日期时间格式化错误:', error);
+            return '-';
+        }
+    }
+
+    // 查看数据视图
+    function viewDataView(viewId) {
+        showMessage('查看数据视图功能开发中，视图ID: ' + viewId, 'info');
+    }
+</script>
+{% endblock %}

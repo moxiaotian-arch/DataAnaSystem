@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}数据分析系统{% endblock %}</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/bootstrap-icons.css" rel="stylesheet">
+<!--    <link href="../static/css/bootstrap-icons.css" rel="stylesheet">-->
+    <style>
+        :root {
+            --sidebar-width: 250px;
+            --header-height: 60px;
+            --footer-height: 50px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            overflow-x: hidden;
+        }
+
+        /* 侧边栏样式 */
+        #sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: linear-gradient(180deg, #343a40 0%, #2c3034 100%);
+            color: #fff;
+            transition: all 0.3s;
+            z-index: 1000;
+            box-shadow: 3px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+
+        .sidebar-menu .nav-link {
+            color: #adb5bd;
+            padding: 12px 20px;
+            margin: 2px 0;
+            border-left: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .sidebar-menu .nav-link:hover,
+        .sidebar-menu .nav-link.active {
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-left-color: #0d6efd;
+        }
+
+        .sidebar-menu .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* 主内容区域样式 */
+        #main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 顶部导航栏样式 */
+        #top-header {
+            height: var(--header-height);
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+            position: relative;
+        }
+
+        /* 内容区域样式 */
+        #content-container {
+            flex: 1;
+            padding: 20px;
+            background-color: #f8f9fa;
+            overflow-y: auto;
+        }
+
+        /* 底部样式 */
+        #system-footer {
+            height: var(--footer-height);
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        /* 卡片样式 */
+        .content-card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+            border: none;
+        }
+
+        .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            padding: 15px 20px;
+            border-radius: 8px 8px 0 0 !important;
+        }
+
+        /* 项目卡片样式 */
+        .project-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 20px;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .project-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-badge {
+            background-color: #e9ecef;
+            color: #495057;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            display: inline-block;
+        }
+
+        .btn-group-sm {
+            display: flex;
+            gap: 5px;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            #sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+
+            #main-content {
+                margin-left: 0;
+            }
+
+            .sidebar-menu {
+                padding: 10px 0;
+            }
+        }
+
+        /* 加载动画 */
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+
+        /* 空状态样式 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+
+        /* 表单样式 */
+        .form-section {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        .required-label::after {
+            content: " *";
+            color: red;
+        }
+
+        /* 开发中提示样式 */
+        .coming-soon {
+            position: relative;
+        }
+
+        .coming-soon::after {
+            content: "开发中";
+            position: absolute;
+            top: 8px;
+            right: 20px;
+            background: #ffc107;
+            color: #000;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        /* 子模板可以覆盖的样式 */
+        {% block extra_css %}
+        {% endblock %}
+    </style>
+</head>
+<body>
+<!-- 左侧导航栏 -->
+<div id="sidebar">
+    <div class="sidebar-header">
+        <h4 class="mb-0">数据分析系统</h4>
+        <small class="text-muted">专业版</small>
+    </div>
+
+    <div class="sidebar-menu">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link {% block project_list_active %}{% endblock %}" href="/data/projects"
+                   data-page="project-list">
+                    <i class="bi bi-grid"></i> 项目总览
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% block project_add_active %}{% endblock %}" href="/data/projects/create"
+                   data-page="project-add">
+                    <i class="bi bi-plus-circle"></i> 创建项目
+                </a>
+            </li>
+            <!-- 在现有的侧边栏菜单中添加 -->
+            <li class="nav-item">
+                <a class="nav-link {% block data_dimension_active %}{% endblock %}"
+                   href="/data/dimensions" data-page="data-dimension">
+                    <i class="bi bi-database"></i> 数据维度
+                </a>
+            </li>
+
+        </ul>
+    </div>
+</div>
+
+<!-- 主内容区域 -->
+<div id="main-content">
+    <!-- 顶部系统头 -->
+    <header id="top-header" class="d-flex justify-content-between align-items-center px-4">
+        <div class="d-flex align-items-center">
+            <button id="sidebarToggle" class="btn btn-outline-secondary me-3 d-md-none">
+                <i class="bi bi-list"></i>
+            </button>
+            <h5 class="mb-0">{% block page_title %}项目管理{% endblock %}</h5>
+        </div>
+        <div class="d-flex align-items-center">
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-person-circle me-2"></i> 管理员
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item coming-soon" href="#">个人设置</a></li>
+                    <li><a class="dropdown-item coming-soon" href="#">系统信息</a></li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+                    <li><a class="dropdown-item" href="#">退出登录</a></li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <!-- 中间内容容器 -->
+    <main id="content-container">
+        {% block content %}
+        <!-- 子模板的内容将在这里显示 -->
+        {% endblock %}
+    </main>
+
+    <!-- 系统底部 -->
+    <footer id="system-footer">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-6">
+                    &copy; 2023 数据分析系统. 保留所有权利.
+                </div>
+                <div class="col-md-6 text-end">
+                    系统状态: <span class="text-success">正常</span> | 版本: 0.1.0.dev
+                </div>
+            </div>
+        </div>
+    </footer>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除项目 "<span id="deleteProjectName"></span>" 吗？此操作不可撤销！</p>
+                <p class="text-danger"><strong>警告：</strong>这将永久删除项目及其所有关联数据。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">确认删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 功能开发中提示模态框 -->
+<div class="modal fade" id="comingSoonModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">功能开发中</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center">
+                    <i class="bi bi-tools" style="font-size: 3rem; color: #ffc107;"></i>
+                    <h4 class="mt-3">功能正在开发中</h4>
+                    <p class="text-muted">该功能目前正在紧张开发中，敬请期待后续版本更新。</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">知道了</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- 基础JavaScript功能 -->
+<script>
+    // 页面加载完成后执行
+    document.addEventListener('DOMContentLoaded', function () {
+        // 初始化侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', function () {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('main-content');
+
+            if (sidebar.style.left === '0px' || !sidebar.style.left) {
+                sidebar.style.left = '-100%';
+                mainContent.style.marginLeft = '0';
+            } else {
+                sidebar.style.left = '0';
+                mainContent.style.marginLeft = 'var(--sidebar-width)';
+            }
+        });
+
+        // 导航菜单点击事件
+        document.querySelectorAll('.sidebar-menu .nav-link').forEach(link => {
+            link.addEventListener('click', function (e) {
+                // 如果链接是开发中的功能，显示提示并阻止跳转
+                if (this.classList.contains('coming-soon') || this.getAttribute('href') === '#') {
+                    e.preventDefault();
+                    const modal = new bootstrap.Modal(document.getElementById('comingSoonModal'));
+                    modal.show();
+                    return;
+                }
+
+                // 更新活动状态
+                document.querySelectorAll('.sidebar-menu .nav-link').forEach(item => {
+                    item.classList.remove('active');
+                });
+                this.classList.add('active');
+            });
+        });
+
+        // 删除确认模态框
+        let deleteProjectId = null;
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
+            if (deleteProjectId) {
+                // 模拟删除项目
+                console.log('删除项目 ID:', deleteProjectId);
+
+                // 关闭模态框
+                const modal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+                modal.hide();
+
+                // 显示成功消息
+                showMessage('项目删除成功', 'success');
+
+                // 重新加载项目列表
+                if (typeof loadProjects === 'function') {
+                    loadProjects();
+                }
+            }
+        });
+
+        // 开发中功能的点击事件
+        document.querySelectorAll('.coming-soon').forEach(element => {
+            element.addEventListener('click', function (e) {
+                e.preventDefault();
+                const modal = new bootstrap.Modal(document.getElementById('comingSoonModal'));
+                modal.show();
+            });
+        });
+    });
+
+    // 显示消息
+    function showMessage(message, type) {
+        // 创建消息元素
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+                <strong>${type === 'success' ? '成功!' : '错误!'}</strong> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+        // 插入到内容容器顶部
+        const contentContainer = document.getElementById('content-container');
+        contentContainer.insertBefore(alertDiv, contentContainer.firstChild);
+
+        // 5秒后自动隐藏
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    // HTML转义函数，防止XSS攻击
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // 删除项目函数
+    function deleteProject(projectId, projectName) {
+        deleteProjectId = projectId;
+        document.getElementById('deleteProjectName').textContent = projectName;
+
+        const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        modal.show();
+    }
+
+    // 开发中功能提示
+    function showComingSoon() {
+        const modal = new bootstrap.Modal(document.getElementById('comingSoonModal'));
+        modal.show();
+    }
+</script>
+<!-- 在现有的侧边栏菜单后添加 -->
+<script>
+    // 检查当前是否在项目详情页面 - 更新路由匹配
+    function isProjectDetailPage() {
+        return window.location.pathname.match(/\/data\/projects\/\d+/) !== null;
+    }
+
+    // 页面加载完成后执行
+    document.addEventListener('DOMContentLoaded', function () {
+        // 如果是项目详情页面，更新系统标题
+        if (isProjectDetailPage()) {
+            // 可以从页面元素中获取项目名
+            const projectNameElement = document.getElementById('project-name');
+            if (projectNameElement) {
+                const systemTitle = document.querySelector('.sidebar-header h4');
+                if (systemTitle) {
+                    systemTitle.textContent = projectNameElement.textContent + ' - 数据分析';
+                }
+            }
+        }
+
+        // 根据当前URL设置活动状态
+        const currentPath = window.location.pathname;
+        const navLinks = document.querySelectorAll('.sidebar-menu .nav-link');
+
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            const href = link.getAttribute('href');
+
+            // 精确匹配路由
+            if (currentPath === href) {
+                link.classList.add('active');
+            }
+            // 匹配项目详情页（/data/projects/数字）
+            else if (href === '/data/projects' && currentPath.match(/\/data\/projects\/\d+/)) {
+                link.classList.add('active');
+            }
+            // 匹配数据维度相关页面
+            else if (href === '/data/dimensions' && currentPath.startsWith('/data/dimensions')) {
+                link.classList.add('active');
+            }
+        });
+    });
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

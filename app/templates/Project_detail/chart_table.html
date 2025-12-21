@@ -1,0 +1,133 @@
+{% extends "./Project_detail/base.html" %}
+
+{% block title %}数据制图 - 在线表格数据分析系统{% endblock %}
+
+{% block workspace_name %}数据制图工作台{% endblock %}
+
+{% block data_table_active %}{% endblock %}
+{% block data_analysis_active %}{% endblock %}
+{% block data_reporting_active %}active{% endblock %}
+
+{% block data_table_link %}/data/projects/{{ project_id }}/index{% endblock %}
+{% block data_reporting_link %}/data/projects/{{ project_id }}/chart-table{% endblock %}
+
+{% block page_title %}数据制图{% endblock %}
+{% block project_name %}项目{{ project_id }}{% endblock %}
+
+{% block project_title %}数据制图管理系统{% endblock %}
+{% block project_description %}创建、管理和分享您的数据图表{% endblock %}
+{% block project_stats %}图表总数: <span id="chart-count">0</span>{% endblock %}
+
+{% block action_buttons %}
+<button class="btn btn-primary" onclick="createChartFolder()">
+    <i class="bi bi-folder-plus me-1"></i>新建文件夹
+</button>
+<button class="btn btn-success" onclick="showCreateChartModal()">
+    <i class="bi bi-plus-circle me-1"></i>新建图表
+</button>
+<button class="btn btn-outline-secondary" onclick="refreshChartData()">
+    <i class="bi bi-arrow-clockwise me-1"></i>刷新
+</button>
+{% endblock %}
+
+{% block main_content %}
+<!-- 数据制图内容 -->
+<div id="data-reporting-content">
+    <div class="content-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">图表文件夹</h5>
+            <div class="chart-actions">
+                <button class="btn btn-sm btn-outline-primary" onclick="importChartData()">
+                    <i class="bi bi-upload me-1"></i>导入图表
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="exportAllCharts()">
+                    <i class="bi bi-download me-1"></i>导出全部
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- 图表文件夹网格 -->
+            <div class="chart-folders-grid" id="chart-folders-grid">
+                <!-- 文件夹内容将通过JavaScript动态生成 -->
+            </div>
+
+            <!-- 空状态提示 -->
+            <div class="empty-charts" id="empty-charts-message" style="display: none;">
+                <i class="bi bi-inbox"></i>
+                <h4>暂无图表文件夹</h4>
+                <p>点击"新建文件夹"按钮创建第一个图表文件夹</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block footer_mode %}数据制图模式{% endblock %}
+
+<!-- 图表文件夹详情模态框 -->
+<div class="modal fade" id="chartFolderModal" tabindex="-1" aria-labelledby="chartFolderModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="chartFolderModalLabel">图表列表</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="chart-list-container">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>图表名称</th>
+                                <th>图表类型</th>
+                                <th>存放地址</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="chart-list-body">
+                            <!-- 图表列表将通过JavaScript动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 图表预览模态框 -->
+<div class="modal fade" id="chartPreviewModal" tabindex="-1" aria-labelledby="chartPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="chartPreviewModalLabel">图表预览</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="chart-preview-content">
+                    <!-- 图表预览内容将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="downloadCurrentChart()">
+                    <i class="bi bi-download me-1"></i>下载图表
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/chart_table.css">
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+    // 设置当前项目ID
+    window.currentProjectId = {{ project_id }};
+</script>
+<script src="/static/js/chart_table.js"></script>
+{% endblock %}

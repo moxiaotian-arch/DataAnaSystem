@@ -1,0 +1,428 @@
+{% extends "./index.html" %}
+
+{% block title %}数据分析系统 - 编辑项目{% endblock %}
+
+{% block page_title %}编辑项目{% endblock %}
+
+{% block project_list_active %}active{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet"/>
+<style>
+    .select2-container--default .select2-selection--multiple {
+        min-height: 38px;
+        border: 1px solid #ced4da;
+    }
+
+    .required-label::after {
+        content: " *";
+        color: red;
+    }
+
+    .loading-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 编辑项目页面内容 -->
+<div id="project-edit-page" class="page-content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>编辑项目</h3>
+        <a href="/data/projects" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>返回项目列表
+        </a>
+    </div>
+
+    <!-- 编辑项目表单 -->
+    <div class="content-card">
+        <div class="card-header">
+            <h5 class="mb-0">项目信息</h5>
+        </div>
+        <div class="card-body">
+            <!-- 加载遮罩 -->
+            <div id="loadingOverlay" class="loading-overlay">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-2">加载项目数据中...</p>
+                </div>
+            </div>
+
+            <form id="projectEditForm">
+                <!-- 隐藏字段传递项目ID -->
+                <input type="hidden" id="projectId" value="{{ project_id }}">
+
+                <div class="mb-3">
+                    <label for="projectName" class="form-label required-label">项目名称</label>
+                    <input type="text" class="form-control" id="projectName" name="name" required maxlength="100">
+                    <div class="form-text">项目名称应简洁明了，便于识别</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="projectDescription" class="form-label">项目描述</label>
+                    <textarea class="form-control" id="projectDescription" name="description"
+                              rows="4" placeholder="请输入项目描述（可选）" maxlength="500"></textarea>
+                    <div class="form-text">详细的项目描述有助于团队成员理解项目需求</div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="projectUsers" class="form-label required-label">项目成员</label>
+                    <select class="form-control" id="projectUsers" name="user_ids" multiple="multiple" required>
+                        <!-- 用户选项将通过JavaScript动态加载 -->
+                    </select>
+                    <div class="form-text">选择参与该项目的成员（可多选）</div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="/data/projects" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left me-2"></i>返回列表
+                    </a>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-danger" onclick="confirmDelete()">
+                            <i class="bi bi-trash me-2"></i>删除项目
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <span id="submitText">更新项目</span>
+                            <span id="submitSpinner" class="spinner-border spinner-border-sm d-none" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- 消息显示区域 -->
+            <div id="message" class="mt-4"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除项目 "<span id="deleteProjectName"></span>" 吗？此操作不可撤销！</p>
+                <p class="text-danger"><strong>警告：</strong>这将永久删除项目及其所有关联数据。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="deleteProject()">
+                    <i class="bi bi-trash me-2"></i>确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    // 从隐藏字段获取项目ID
+    const projectId = document.getElementById('projectId').value;
+    let currentProject = null;
+
+    // 使用jQuery的文档就绪函数确保DOM完全加载
+    $(document).ready(function () {
+        console.log('DOM加载完成，项目ID:', projectId);
+
+        // 检查项目ID有效性
+        if (!projectId || projectId <= 0) {
+            showMessage('无效的项目ID，请检查URL', 'danger');
+            return;
+        }
+
+        initializeSelect2();
+        loadProjectData();
+        setupFormSubmit();
+    });
+
+    // 初始化Select2
+    function initializeSelect2() {
+        $('#projectUsers').select2({
+            placeholder: '选择项目成员',
+            allowClear: true,
+            width: '100%',
+            theme: 'bootstrap-5'
+        });
+    }
+
+    // 填充表单数据
+    function populateForm(project, users) {
+        console.log('开始填充表单数据:', project);
+
+        // 填充项目名称
+        document.getElementById('projectName').value = project.name || '';
+
+        // 填充项目描述
+        document.getElementById('projectDescription').value = project.description || '';
+
+        // 填充项目成员选择框
+        populateUserSelect(users, project.user_ids || []);
+
+        // 设置删除确认模态框中的项目名称
+        document.getElementById('deleteProjectName').textContent = project.name;
+    }
+
+    // 填充用户选择框
+    function populateUserSelect(users, selectedUserIds) {
+        console.log('填充用户选择框，用户数:', users.length, '选中用户ID:', selectedUserIds);
+
+        const userSelect = $('#projectUsers');
+        userSelect.empty();
+
+        // 添加用户选项
+        users.forEach(user => {
+            const option = new Option(user.username, user.id, false, selectedUserIds.includes(user.id));
+            userSelect.append(option);
+        });
+
+        // 刷新Select2
+        userSelect.trigger('change');
+        console.log('用户选择框填充完成');
+    }
+
+    // 加载项目数据和用户列表
+    function loadProjectData() {
+        console.log('开始加载项目数据，项目ID:', projectId);
+        showLoading(true);
+
+        // 检查项目ID是否有效
+        if (!projectId || projectId <= 0) {
+            showMessage('无效的项目ID', 'danger');
+            showLoading(false);
+            return;
+        }
+
+        // 并行加载项目详情和用户列表
+        Promise.all([
+            fetch(`/data/api/project/${projectId}`).then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            }),
+            fetch('/data/api/users/select').then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+        ])
+            .then(([projectData, usersData]) => {
+                console.log('项目数据响应:', projectData);
+                console.log('用户数据响应:', usersData);
+
+                if (projectData.success && usersData.success) {
+                    currentProject = projectData.project;
+                    console.log('当前项目数据:', currentProject);
+                    populateForm(currentProject, usersData.users);
+                    showMessage('项目数据加载成功', 'success');
+                } else {
+                    const errorMsg = projectData.message || usersData.message || '未知错误';
+                    console.error('加载数据失败:', errorMsg);
+                    showMessage('加载数据失败: ' + errorMsg, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('加载数据时发生错误:', error);
+                showMessage('加载数据时发生错误: ' + error.message, 'danger');
+            })
+            .finally(() => {
+                showLoading(false);
+            });
+    }
+
+    // 设置表单提交
+    function setupFormSubmit() {
+        document.getElementById('projectEditForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            updateProject();
+        });
+    }
+
+    // 更新项目
+    function updateProject() {
+        const submitBtn = document.getElementById('submitBtn');
+        const submitText = document.getElementById('submitText');
+        const submitSpinner = document.getElementById('submitSpinner');
+
+        // 验证表单
+        if (!validateForm()) {
+            return;
+        }
+
+        // 准备数据
+        const formData = {
+            name: document.getElementById('projectName').value.trim(),
+            description: document.getElementById('projectDescription').value.trim(),
+            user_ids: $('#projectUsers').val() || []
+        };
+
+        // 显示加载状态
+        submitBtn.disabled = true;
+        submitText.textContent = '更新中...';
+        submitSpinner.classList.remove('d-none');
+
+        // 发送更新请求
+        fetch(`/data/api/project/${projectId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应不正常');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showMessage('项目更新成功', 'success');
+                    // 2秒后返回项目列表
+                    setTimeout(() => {
+                        window.location.href = '/data/project';
+                    }, 2000);
+                } else {
+                    showMessage(data.message || '更新项目失败', 'danger');
+                }
+            })
+            .catch(error => {
+                showMessage('更新项目时发生错误: ' + error.message, 'danger');
+            })
+            .finally(() => {
+                // 恢复按钮状态
+                submitBtn.disabled = false;
+                submitText.textContent = '更新项目';
+                submitSpinner.classList.add('d-none');
+            });
+    }
+
+    // 表单验证
+    function validateForm() {
+        const name = document.getElementById('projectName').value.trim();
+        const users = $('#projectUsers').val();
+
+        if (!name) {
+            showMessage('请输入项目名称', 'danger');
+            document.getElementById('projectName').focus();
+            return false;
+        }
+
+        if (!users || users.length === 0) {
+            showMessage('请至少选择一个项目成员', 'danger');
+            $('#projectUsers').select2('open');
+            return false;
+        }
+
+        return true;
+    }
+
+    // 显示删除确认模态框
+    function confirmDelete() {
+        if (!currentProject) {
+            showMessage('项目数据未加载完成，请稍后重试', 'warning');
+            return;
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        modal.show();
+    }
+
+    // 删除项目
+    function deleteProject() {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+
+        fetch(`/data/api/project/${projectId}`, {
+            method: 'DELETE'
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应不正常');
+                }
+                return response.json();
+            })
+            .then(data => {
+                modal.hide();
+                if (data.success) {
+                    showMessage('项目删除成功', 'success');
+                    // 2秒后返回项目列表
+                    setTimeout(() => {
+                        window.location.href = '/data/project';
+                    }, 2000);
+                } else {
+                    showMessage(data.message || '删除项目失败', 'danger');
+                }
+            })
+            .catch(error => {
+                modal.hide();
+                showMessage('删除项目时发生错误: ' + error.message, 'danger');
+            });
+    }
+
+    // 显示加载状态
+    function showLoading(show) {
+        document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+    }
+
+    // 显示消息（使用基础模板中的showMessage函数）
+    function showMessage(message, type) {
+        // 创建消息元素
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            <strong>${type === 'success' ? '成功!' : type === 'danger' ? '错误!' : '警告!'}</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        // 插入到内容容器顶部
+        const contentContainer = document.getElementById('content-container');
+        const firstChild = contentContainer.firstChild;
+        if (firstChild && firstChild.id !== 'message') {
+            contentContainer.insertBefore(alertDiv, firstChild);
+        } else {
+            contentContainer.insertBefore(alertDiv, contentContainer.querySelector('.page-content'));
+        }
+
+        // 5秒后自动隐藏
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                const bsAlert = bootstrap.Alert.getOrCreateInstance(alertDiv);
+                bsAlert.close();
+            }
+        }, 5000);
+    }
+
+    // HTML转义函数（使用基础模板中的函数）
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+</script>
+{% endblock %}

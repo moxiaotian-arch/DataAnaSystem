@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}数据分析系统{% endblock %}</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/project_detail_index.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<!-- 左侧导航栏 -->
+<div id="sidebar">
+    <div class="sidebar-header">
+        <h4 class="mb-0" id="project-name-display">数据分析系统</h4>
+        <small class="text-muted">{% block workspace_name %}工作台{% endblock %}</small>
+    </div>
+
+    <div class="sidebar-menu">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link {% block data_table_active %}{% endblock %}"
+                   href="{% block data_table_link %}/data/projects/{{ project_id }}/index{% endblock %}">
+                    <i class="bi bi-table"></i> 数据表格
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% block data_analysis_active %}{% endblock %}" href="#">
+                    <i class="bi bi-bar-chart"></i> 数据分析
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% block data_reporting_active %}{% endblock %}"
+                   href="{% block data_reporting_link %}/data/projects/{{ project_id }}/chart-table{% endblock %}"
+                   data-page="data-reporting">
+                    <i class="bi bi-bar-chart"></i> 数据制图
+                </a>
+            </li>
+            <li class="nav-item mt-4">
+                <a class="nav-link" href="/data/projects">
+                    <i class="bi bi-arrow-left"></i> 返回项目列表
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- 主内容区域 -->
+<div id="main-content">
+    <!-- 顶部系统头 -->
+    <header id="top-header" class="d-flex justify-content-between align-items-center px-4">
+        <div class="d-flex align-items-center">
+            <button id="sidebarToggle" class="btn btn-outline-secondary me-3 d-md-none">
+                <i class="bi bi-list"></i>
+            </button>
+            <h5 class="mb-0" id="page-title">{% block page_title %}页面标题{% endblock %}</h5>
+        </div>
+        <div class="d-flex align-items-center">
+            <span class="me-3 text-muted">项目: <span
+                    id="project-name">{% block project_name %}项目{% endblock %}</span></span>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-person-circle me-2"></i> 用户
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#">个人设置</a></li>
+                    <li><a class="dropdown-item" href="#">系统信息</a></li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+                    <li><a class="dropdown-item" href="/data/projects">返回项目列表</a></li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <!-- 中间内容容器 -->
+    <main id="content-container">
+        <!-- 项目信息卡片 -->
+        <div class="content-card project-info-card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h3 id="project-title">{% block project_title %}项目标题{% endblock %}</h3>
+                        <p id="project-description" class="mb-2">{% block project_description %}项目描述{% endblock
+                            %}</p>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-light text-dark me-2" id="project-status">就绪</span>
+                            <small>{% block project_stats %}项目统计信息{% endblock %}</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="btn-group">
+                            {% block action_buttons %}{% endblock %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主要内容区域 -->
+        {% block main_content %}{% endblock %}
+    </main>
+
+    <!-- 系统底部 -->
+    <footer id="system-footer">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-6">
+                    &copy; 2023 数据分析系统. 保留所有权利.
+                </div>
+                <div class="col-md-6 text-end">
+                    版本: 1.0.0 | {% block footer_mode %}系统模式{% endblock %}
+                </div>
+            </div>
+        </div>
+    </footer>
+</div>
+
+{% block modals %}{% endblock %}
+
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>
