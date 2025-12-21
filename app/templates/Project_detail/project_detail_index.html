@@ -130,7 +130,24 @@
 
 <!-- 重命名表格模态框 -->
 <div class="modal fade" id="renameSheetModal" tabindex="-1" aria-labelledby="renameSheetModalLabel" aria-hidden="true">
-    <!-- 模态框内容保持不变 -->
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="renameSheetModalLabel">重命名表格</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="sheetNameInput" class="form-label">表格名称</label>
+                    <input type="text" class="form-control" id="sheetNameInput" placeholder="请输入表格名称">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="confirmRenameSheet()">确认重命名</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- 数据合并模态框 - 第一步：选择表格 -->

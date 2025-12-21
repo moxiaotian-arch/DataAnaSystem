@@ -35,9 +35,12 @@ function initializeApp() {
         console.error('创建表格模态框元素未找到');
     }
 
+    // 新增：初始化重命名模态框
     const renameSheetModalElement = document.getElementById('renameSheetModal');
     if (renameSheetModalElement) {
         renameSheetModal = new bootstrap.Modal(renameSheetModalElement);
+    } else {
+        console.error('重命名表格模态框元素未找到');
     }
 
     // 简化侧边栏切换
@@ -358,7 +361,7 @@ function showRenameSheetModal(sheetIndex) {
     sheetToRename = sheetIndex;
     const sheet = workbookData.sheets[sheetIndex];
 
-    // 修改：添加防御性检查
+    // 添加防御性检查
     const sheetNameInput = document.getElementById('sheetNameInput');
     if (!sheetNameInput) {
         console.error('sheetNameInput元素未找到');
@@ -368,7 +371,7 @@ function showRenameSheetModal(sheetIndex) {
 
     sheetNameInput.value = sheet.name;
 
-    // 修改：确保模态框已初始化
+    // 确保模态框已初始化
     if (!renameSheetModal) {
         const modalElement = document.getElementById('renameSheetModal');
         if (modalElement) {
@@ -382,7 +385,8 @@ function showRenameSheetModal(sheetIndex) {
 
     renameSheetModal.show();
 
-    // 修改：添加防御性检查
+
+    // 自动聚焦到输入框
     setTimeout(() => {
         if (sheetNameInput) {
             sheetNameInput.focus();
@@ -393,33 +397,39 @@ function showRenameSheetModal(sheetIndex) {
 
 // 确认重命名表格
 function confirmRenameSheet() {
+    // 添加防御性检查
     const sheetNameInput = document.getElementById('sheetNameInput');
-    const newSheetName = sheetNameInput.value.trim();
-
-    if (newSheetName === '') {
-        showMessage('表格名称不能为空', 'warning');
-        sheetNameInput.focus();
+    if (!sheetNameInput) {
+        showMessage('页面元素加载异常，请刷新页面重试', 'error');
         return;
     }
 
-    // 检查名称是否重复（排除当前表格）
-    const isDuplicate = workbookData.sheets.some((sheet, index) =>
-        sheet.name === newSheetName && index !== sheetToRename
+    const newSheetName = sheetNameInput.value.trim();
+    if (!newSheetName) {
+        showMessage('表格名称不能为空', 'error');
+        return;
+    }
+
+    // 检查名称是否已存在
+    const isNameExist = workbookData.sheets.some(
+        (sheet, index) => sheet.name === newSheetName && index !== sheetToRename
     );
 
-    if (isDuplicate) {
-        showMessage('表格名称已存在，请使用其他名称', 'warning');
-        sheetNameInput.focus();
+    if (isNameExist) {
+        showMessage('表格名称已存在，请使用其他名称', 'error');
         return;
     }
 
     // 更新表格名称
     workbookData.sheets[sheetToRename].name = newSheetName;
-    renameSheetModal.hide();
-    renderSheetTabs();
-    updateTableStatus();
 
-    showMessage('表格名称已成功更新', 'success');
+    // 刷新界面
+    refreshSheetsList();
+
+    // 关闭模态框
+    renameSheetModal.hide();
+
+    showMessage('表格重命名成功', 'success');
 }
 
 // 删除表格（优化版）
