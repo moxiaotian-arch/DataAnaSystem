@@ -141,136 +141,200 @@
     color: #155724;
 }
 
-.chart-detail-status-inactive {
-    background-color: #f8d7da;
-    color: #721c24;
+/* 预览功能样式 */
+.chart-detail-preview-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
 }
 
-.chart-detail-action-cell {
-    min-width: 150px;
+.chart-preview-modal .modal-dialog {
+    max-width: 90%;
+    height: 90vh;
 }
 
-.select2-container--default {
-    border: 1px solid #ced4da;
-    border-radius: 0.375rem;
-    z-index: 1060;
-}
-
-.select2-selection--multiple {
-    min-height: 38px !important; /* 与普通表单控件高度一致 */
-    max-height: 80px !important; /* 限制最大高度 */
-    overflow-y: auto !important;
-}
-
-.select2-selection--multiple .select2-selection__placeholder {
-    line-height: 24px !important; /* 单行显示 */
-    color: #6c757d !important;
-}
-
-.select2-selection--multiple .select2-selection__rendered {
-    min-height: 24px !important;
-    line-height: 1.2 !important;
-}
-
-/* 确保在模态框中的Select2显示正常 */
-#chartConfigModal .select2-container--default .select2-selection--multiple {
-    min-height: 38px;
-    border: 1px solid #ced4da;
-    border-radius: 0.375rem;
-}
-
-/* 调整Select2下拉框位置 */
-.select2-container--open .select2-dropdown--below {
-    margin-top: 2px;
-}
-
-.select2-dropdown {
-    z-index: 1061;
-}
-
-.modal .select2-container {
-    width: 100% !important;
-}
-
-/* 图表预览样式 */
-.image-container-wrapper {
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-    overflow: auto;
-    max-height: 70vh;
-}
-
-.image-container {
+.chart-preview-image-container {
     position: relative;
-    min-height: 200px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
-
-.preview-loading, .preview-error {
-    text-align: center;
-    color: #6c757d;
-}
-
-.preview-image {
-    transition: transform 0.3s ease;
-    cursor: grab;
-}
-
-.preview-image:active {
-    cursor: grabbing;
-}
-
-.zoom-controls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.chart-info-card {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 0.375rem;
-    border-left: 4px solid #0d6efd;
-}
-
-.chart-info-card strong {
-    color: #495057;
-    min-width: 80px;
-    display: inline-block;
-}
-
-.image-container-wrapper {
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-    padding: 1rem;
+    width: 100%;
+    height: 600px;
     background-color: #f8f9fa;
-    max-height: 600px;
-    overflow: auto;
-}
-
-.image-container {
-    text-align: center;
-    min-height: 400px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.preview-loading, .preview-error {
-    min-height: 300px;
+.chart-preview-image {
+    max-width: 100%;
+    max-height: 100%;
+    transition: transform 0.3s ease;
+}
+
+.chart-preview-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px 15px;
+    border-radius: 25px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.chart-preview-zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.chart-preview-zoom-level {
+    min-width: 60px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.chart-preview-loading {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    padding: 40px;
+    color: #6c757d;
 }
 
-#preview-image {
-    max-width: 100%;
-    height: auto;
-    transition: transform 0.3s ease;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    border-radius: 0.375rem;
+.chart-preview-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: #dc3545;
+}
+
+.chart-preview-info {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.chart-preview-info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.chart-preview-info-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.chart-preview-info-value {
+    color: #6c757d;
+}
+
+/* 图片操作按钮样式 */
+.btn-preview-action {
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .chart-preview-modal .modal-dialog {
+        max-width: 95%;
+        height: 80vh;
+    }
+
+    .chart-preview-image-container {
+        height: 400px;
+    }
+
+    .chart-preview-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+        bottom: 10px;
+        padding: 8px 12px;
+    }
+}
+
+/* Toast提示样式 */
+.chart-toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    max-width: 350px;
+}
+
+.chart-toast {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-bottom: 10px;
+    border-left: 4px solid #007bff;
+    animation: slideInRight 0.3s ease-out;
+}
+
+.chart-toast-success {
+    border-left-color: #28a745;
+}
+
+.chart-toast-error {
+    border-left-color: #dc3545;
+}
+
+.chart-toast-warning {
+    border-left-color: #ffc107;
+}
+
+.chart-toast-content {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chart-toast-message {
+    flex: 1;
+    margin-right: 10px;
+}
+
+.chart-toast-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    opacity: 0.7;
+    padding: 4px;
+}
+
+.chart-toast-close:hover {
+    opacity: 1;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 下载按钮样式 */
+.chart-detail-download-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
 }

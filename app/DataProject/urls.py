@@ -90,7 +90,6 @@ data_project_bp.route('/api/chart-types/<int:chart_type_id>/charts/paginated',
                      endpoint='api_chart_type_charts_paginated')(
     func_views.get_charts_by_type_with_pagination)
 
-# 本次新增
 # 获取项目下的Sheet列表
 data_project_bp.route('/api/projects/<int:project_id>/sheets', methods=['GET'], endpoint='api_project_sheets')(
     func_views.get_project_sheets)

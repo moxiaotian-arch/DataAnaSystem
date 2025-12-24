@@ -17,6 +17,8 @@ from app.core.config import config  # 导入配置文件
 
 from app.Utils.data_project_utils import DataProjectUtils
 from app.Utils.chart_utils import ChartUtils
+from app.Utils.RequestsUtils import RequestsUtils
+from app.Utils.data_detail_utils import ExcelExec
 
 
 # -------------------------项目数据处理方法-------------------------------
@@ -700,14 +702,14 @@ def merge_tables(project_id):
 
         # 获取请求数据
         data = request.get_json()
-        print(json.dumps(data, ensure_ascii=False, indent=2))
 
         # 验证必要字段
         if not data:
             print("错误: 请求数据为空")
             return jsonify({
                 'success': False,
-                'message': '请求数据不能为空'
+                'message': '请求数据不能为空',
+                'error_code': 'VALIDATION_ERROR'
             }), 400
 
         # 第一步：验证匹配列是否存在于所有源表中
@@ -720,10 +722,46 @@ def merge_tables(project_id):
         if not merge_validation_result['success']:
             return jsonify(merge_validation_result), 400
 
+        # 准备项目目录和Excel文件路径
+        project_dir = DataProjectUtils.prepare_project_directory(project_id, config)
+        excel_file_path = DataProjectUtils.get_latest_excel_file(project_dir)
+
         # 第三步：执行数据合并
-        merge_result = execute_data_merge(data, project_id)
-        # return jsonify(merge_result), merge_result.get('status_code', 200)
-        return jsonify("test"), 200
+        merge_result = ExcelExec.join_excels(data, project_id, excel_file_path)
+
+        if merge_result:
+            # 合并成功后，重新加载工作簿数据返回给前端
+            try:
+                workbook_data = DataProjectUtils.convert_excel_to_json(excel_file_path)
+                return RequestsUtils.make_response(
+                    status_code=200,
+                    msg='数据合并成功',
+                    data={
+                        'merge_result': {
+                            'target_table': data.get('targetTableName'),
+                            'source_tables': data.get('sourceTableNames', []),
+                            'merged_columns_count': len(data.get('mergeColumns', [])),
+                            'created_new_table': data.get('createNewTable', False),
+                            'new_table_name': data.get('newTableName', '')
+                        },
+                    }
+                )
+            except Exception as load_error:
+                print(f"加载合并后数据失败: {str(load_error)}")
+
+                return jsonify({
+                    'success': True,
+                    'message': '数据合并成功，但加载更新数据时出现问题',
+                    'error_code': 'DATA_LOAD_ERROR',
+                    'details': str(load_error)
+                }), 200
+
+        else:
+            return jsonify({
+                'success': False,
+                'message': '数据合并失败，请检查数据格式',
+                'error_code': 'MERGE_EXECUTION_ERROR'
+            }), 500
 
     except Exception as e:
         print(f"=== 数据合并时发生异常 ===")
@@ -733,7 +771,9 @@ def merge_tables(project_id):
         print(f"堆栈跟踪: {traceback.format_exc()}")
         return jsonify({
             'success': False,
-            'message': f'数据合并失败: {str(e)}'
+            'message': f'数据合并失败: {str(e)}',
+            'error_code': 'UNKNOWN_ERROR',
+            'details': str(e)
         }), 500
 
 
@@ -912,330 +952,6 @@ def validate_merge_columns(data, project_id):
         }
 
 
-def execute_data_merge(data, project_id):
-    """第三步：执行数据合并（修复版）"""
-    try:
-        print("=== 开始执行数据合并 ===")
-
-        target_table_name = data.get('targetTableName')
-        source_table_names = data.get('sourceTableNames', [])
-        match_columns = data.get('matchColumns', [])
-        merge_columns_config = data.get('mergeColumns', [])
-        create_new_table = data.get('createNewTable', False)
-        new_table_name = data.get('newTableName', '')
-        #
-        # print(f"创建新工作簿: {create_new_table}")
-        # if create_new_table:
-        #     print(f"新工作簿名称: {new_table_name}")
-        #
-        # # 获取项目的工作簿数据（整个Excel文件）
-        # workbook_data = get_project_workbook_data(project_id)
-        # if not workbook_data:
-        #     return {
-        #         'success': False,
-        #         'message': '项目工作簿数据不存在',
-        #         'status_code': 404
-        #     }
-        #
-        # # 获取目标表数据
-        # target_table = find_table_by_name(workbook_data, target_table_name)
-        # if not target_table:
-        #     return {
-        #         'success': False,
-        #         'message': f'目标表 {target_table_name} 不存在',
-        #         'status_code': 404
-        #     }
-        #
-        # # 获取源表数据
-        # source_tables = []
-        # for source_table_name in source_table_names:
-        #     source_table = find_table_by_name(workbook_data, source_table_name)
-        #     if source_table:
-        #         source_tables.append(source_table)
-        #
-        # if not source_tables:
-        #     return {
-        #         'success': False,
-        #         'message': '未找到有效的源表数据',
-        #         'status_code': 404
-        #     }
-        #
-        # # 执行合并逻辑
-        # if create_new_table:
-        #     result = create_new_merged_table(
-        #         workbook_data, target_table, source_tables,
-        #         match_columns, merge_columns_config, new_table_name
-        #     )
-        # else:
-        #     result = merge_into_target_table(
-        #         workbook_data, target_table, source_tables,
-        #         match_columns, merge_columns_config
-        #     )
-        #
-        # if result['success']:
-        #     # 保存合并后的工作簿数据到同一个Excel文件
-        #     save_result = save_merged_workbook_data(project_id, workbook_data)
-        #     if not save_result['success']:
-        #         return save_result
-        #
-        #     return {
-        #         'success': True,
-        #         'message': result['message'],
-        #         'merged_table_name': result.get('merged_table_name'),
-        #         'created_new_table': create_new_table,
-        #         'file_updated': True  # 表示文件已更新
-        #     }
-        # else:
-        #     return result
-
-    except Exception as e:
-        print(f"执行数据合并时发生异常: {str(e)}")
-        return {
-            'success': False,
-            'message': f'执行数据合并失败: {str(e)}',
-            'status_code': 500
-        }
-
-
-def create_new_merged_table(workbook_data, target_table, source_tables, match_columns, merge_columns_config,
-                            new_table_name):
-    """创建新合并表（在原Excel中新增工作簿）"""
-    try:
-        print("=== 在原Excel中新增合并工作簿 ===")
-
-        if not new_table_name.strip():
-            return {
-                'success': False,
-                'message': '新表名称不能为空'
-            }
-
-        # 检查新表名是否已存在于当前Excel文件中
-        if find_table_by_name(workbook_data, new_table_name):
-            return {
-                'success': False,
-                'message': f'表名 {new_table_name} 已存在，请使用其他名称'
-            }
-
-        # 创建新工作簿结构
-        new_table = {
-            'name': new_table_name,
-            'columns': [],
-            'rows': []
-        }
-
-        # 添加匹配列
-        for match_col in match_columns:
-            # 从目标表获取列定义
-            target_col = find_column_by_name(target_table, match_col)
-            if target_col:
-                new_table['columns'].append(target_col.copy())
-
-        # 添加待合并列
-        for merge_config in merge_columns_config:
-            source_table_name = merge_config['tableName']
-            source_table = find_table_by_name(workbook_data, source_table_name)
-
-            for column_name in merge_config['columns']:
-                source_col = find_column_by_name(source_table, column_name)
-                if source_col:
-                    # 避免重复列名
-                    col_name = column_name
-                    counter = 1
-                    while find_column_by_name(new_table, col_name):
-                        col_name = f"{column_name}_{counter}"
-                        counter += 1
-
-                    new_col = source_col.copy()
-                    new_col['name'] = col_name
-                    new_table['columns'].append(new_col)
-
-        # 执行数据合并
-        merged_data = perform_data_merge(target_table, source_tables, match_columns, merge_columns_config)
-        new_table['rows'] = merged_data
-
-        # 将新工作簿添加到当前Excel文件的工作簿列表中
-        workbook_data['sheets'].append(new_table)
-
-        print(f"新工作簿创建成功，包含 {len(new_table['rows'])} 行数据")
-        return {
-            'success': True,
-            'message': f'数据合并完成，已在原Excel中新增工作簿 "{new_table_name}"',
-            'merged_table_name': new_table_name
-        }
-
-    except Exception as e:
-        print(f"创建新合并工作簿时发生异常: {str(e)}")
-        return {
-            'success': False,
-            'message': f'创建新合并工作簿失败: {str(e)}'
-        }
-
-
-def merge_into_target_table(workbook_data, target_table, source_tables, match_columns, merge_columns_config):
-    """合并到目标表（在原Excel中的原工作簿）"""
-    try:
-        print("=== 合并到目标表 ===")
-
-        original_row_count = len(target_table['rows'])
-
-        # 执行数据合并
-        merged_data = perform_data_merge(target_table, source_tables, match_columns, merge_columns_config)
-
-        # 直接更新原工作簿的数据
-        target_table['rows'] = merged_data
-
-        new_row_count = len(target_table['rows'])
-        added_rows = new_row_count - original_row_count
-
-        print(f"目标表合并完成，新增 {added_rows} 行数据")
-        return {
-            'success': True,
-            'message': f'数据合并完成，目标表 "{target_table["name"]}" 已更新，新增 {added_rows} 行数据'
-        }
-    except Exception as e:
-        print(f"合并到目标表时发生异常: {str(e)}")
-        return {
-            'success': False,
-            'message': f'合并到目标表失败: {str(e)}'
-        }
-
-
-def perform_data_merge(target_table, source_tables, match_columns, merge_columns_config):
-    """执行实际的数据合并逻辑（修复版）- 保留目标表所有原始数据"""
-    try:
-        print("=== 执行数据合并逻辑（修复版）===")
-
-        # 创建目标表数据的完整副本（保留所有列）
-        merged_rows = []
-
-        # 1. 首先完整复制目标表的所有数据
-        for target_row in target_table['rows']:
-            # 创建目标行的完整副本
-            merged_row = target_row.copy()  # 重要：复制所有列数据
-            merged_row['_source'] = 'target'  # 标记来源
-            merged_rows.append(merged_row)
-
-        print(f"目标表原始数据行数: {len(merged_rows)}")
-
-        # 2. 处理源表数据
-        for source_table in source_tables:
-            print(f"处理源表: {source_table['name']}")
-
-            for source_row in source_table['rows']:
-                # 查找匹配的行（基于匹配列）
-                matching_row = find_matching_row(merged_rows, source_row, match_columns, source_table)
-
-                if matching_row:
-                    print(f"找到匹配行，更新数据")
-                    # 更新现有行：只添加/更新待合并列，不删除任何数据
-                    update_existing_row(matching_row, source_row, source_table, merge_columns_config)
-                else:
-                    print(f"未找到匹配行，创建新行")
-                    # 创建新行：包含匹配列和待合并列
-                    new_row = create_new_row_with_all_data(target_table, source_row, source_table, match_columns,
-                                                           merge_columns_config)
-                    merged_rows.append(new_row)
-
-        print(f"合并完成，总行数: {len(merged_rows)}")
-        return merged_rows
-
-    except Exception as e:
-        print(f"执行数据合并逻辑时发生异常: {str(e)}")
-        raise e
-
-
-def create_new_row_with_all_data(target_table, source_row, source_table, match_columns, merge_columns_config):
-    """创建新行（修复版）- 包含目标表的所有列结构"""
-    new_row = {}
-
-    # 1. 首先设置目标表的所有列（初始化为空值）
-    for col_index, col_def in enumerate(target_table['columns']):
-        col_name = col_def['name']
-        new_row[col_index] = ''  # 初始化为空
-
-    # 2. 填充匹配列数据
-    for match_col in match_columns:
-        col_index = find_column_index_by_name(target_table, match_col)
-        source_col_index = find_column_index_by_name(source_table, match_col)
-
-        if col_index is not None and source_col_index is not None:
-            new_row[col_index] = source_row.get(source_col_index, '')
-
-    # 3. 填充待合并列数据
-    for config in merge_columns_config:
-        if config['tableName'] == source_table['name']:
-            for column_name in config['columns']:
-                # 在目标表中查找对应的列索引
-                col_index = find_column_index_by_name(target_table, column_name)
-                source_col_index = find_column_index_by_name(source_table, column_name)
-
-                if col_index is not None and source_col_index is not None:
-                    new_row[col_index] = source_row.get(source_col_index, '')
-
-    new_row['_source'] = source_table['name']
-    return new_row
-
-
-def update_existing_row(existing_row, source_row, source_table, merge_columns_config):
-    """更新现有行（修复版）- 只更新特定列，不删除数据"""
-    # 查找当前源表对应的合并配置
-    source_config = None
-    for config in merge_columns_config:
-        if config['tableName'] == source_table['name']:
-            source_config = config
-            break
-
-    if source_config:
-        for column_name in source_config['columns']:
-            # 这里需要根据您的数据结构来更新对应的列
-            # 假设 existing_row 使用列索引作为键
-            # 您需要根据列名找到对应的索引
-            col_index = find_column_index_by_name_from_context(column_name)  # 需要实现这个函数
-            source_col_index = find_column_index_by_name(source_table, column_name)
-
-            if col_index is not None and source_col_index is not None:
-                existing_row[col_index] = source_row.get(source_col_index, '')
-
-def find_matching_row(merged_rows, source_row, match_columns, source_table):
-    """查找匹配的行"""
-    for merged_row in merged_rows:
-        is_match = True
-        for match_col in match_columns:
-            source_col_index = find_column_index_by_name(source_table, match_col)
-            if source_col_index is not None:
-                source_value = source_row.get(source_col_index, '')
-                merged_value = merged_row.get(match_col, '')
-
-                if str(source_value) != str(merged_value):
-                    is_match = False
-                    break
-
-        if is_match:
-            return merged_row
-    return None
-
-def create_new_row(source_row, source_table, match_columns, merge_columns_config):
-    """创建新行"""
-    new_row = {}
-
-    # 添加匹配列数据
-    for match_col in match_columns:
-        col_index = find_column_index_by_name(source_table, match_col)
-        if col_index is not None:
-            new_row[match_col] = source_row.get(col_index, '')
-
-    # 添加待合并列数据
-    for config in merge_columns_config:
-        if config['tableName'] == source_table['name']:
-            for column_name in config['columns']:
-                col_index = find_column_index_by_name(source_table, column_name)
-                if col_index is not None:
-                    new_row[column_name] = source_row.get(col_index, '')
-
-    new_row['_source'] = source_table['name']
-    return new_row
-
-
 # 辅助函数
 def get_project_workbook_data(project_id):
     """获取项目的工作簿数据"""
@@ -1254,41 +970,6 @@ def get_project_workbook_data(project_id):
         return None
 
 
-def find_column_index_by_name_from_context(column_name, target_table=None, workbook_data=None, project_id=None):
-    """根据列名查找列索引（从上下文获取表信息）"""
-    try:
-        # 如果有直接传入的目标表，优先使用
-        if target_table and 'columns' in target_table:
-            for index, col in enumerate(target_table['columns']):
-                if col.get('name') == column_name:
-                    return index
-
-        # 如果没有直接传入表，尝试从工作簿数据中查找
-        if workbook_data and 'sheets' in workbook_data:
-            for sheet in workbook_data['sheets']:
-                if 'columns' in sheet:
-                    for index, col in enumerate(sheet['columns']):
-                        if col.get('name') == column_name:
-                            return index
-
-        # 如果还没有找到，尝试从项目数据中加载
-        if project_id:
-            project_workbook_data = get_project_workbook_data(project_id)
-            if project_workbook_data and 'sheets' in project_workbook_data:
-                for sheet in project_workbook_data['sheets']:
-                    if 'columns' in sheet:
-                        for index, col in enumerate(sheet['columns']):
-                            if col.get('name') == column_name:
-                                return index
-
-        print(f"警告: 未找到列 '{column_name}' 的索引")
-        return None
-
-    except Exception as e:
-        print(f"查找列索引时发生异常: {str(e)}")
-        return None
-
-
 def find_table_by_name(workbook_data, table_name):
     """根据表名查找表"""
     if not workbook_data or 'sheets' not in workbook_data:
@@ -1298,62 +979,6 @@ def find_table_by_name(workbook_data, table_name):
         if sheet.get('name') == table_name:
             return sheet
     return None
-
-
-def find_column_by_name(table, column_name):
-    """根据列名查找列定义"""
-    if not table or 'columns' not in table:
-        return None
-
-    for col in table['columns']:
-        if col.get('name') == column_name:
-            return col
-    return None
-
-
-def find_column_index_by_name(table, column_name):
-    """根据列名查找列索引"""
-    if not table or 'columns' not in table:
-        return None
-
-    for index, col in enumerate(table['columns']):
-        if col.get('name') == column_name:
-            return index
-    return None
-
-
-def save_merged_workbook_data(project_id, workbook_data):
-    """保存合并后的工作簿数据到同一个Excel文件"""
-    try:
-        print("=== 开始保存合并后的工作簿数据 ===")
-
-        # 准备项目目录
-        project_dir = DataProjectUtils.prepare_project_directory(project_id, config)
-
-        # 获取项目最新的Excel文件路径（覆盖原文件）
-        excel_file_path = DataProjectUtils.get_latest_excel_file(project_dir)
-
-        if not excel_file_path:
-            # 如果没有找到现有文件，创建一个新的
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            excel_file_path = os.path.join(project_dir, f"workbook_{timestamp}.xlsx")
-            print(f"未找到现有Excel文件，创建新文件: {excel_file_path}")
-        else:
-            print(f"找到现有Excel文件，将进行覆盖: {excel_file_path}")
-
-        # 将字典数据转换为Excel（覆盖或更新原文件）
-        DataProjectUtils.convert_dict_to_excel(workbook_data, excel_file_path)
-        print("Excel文件保存成功")
-
-        print(f"合并工作簿数据保存成功: {excel_file_path}")
-        return {'success': True, 'file_path': excel_file_path}
-
-    except Exception as e:
-        print(f"保存合并工作簿数据失败: {str(e)}")
-        return {
-            'success': False,
-            'message': f'保存合并数据失败: {str(e)}'
-        }
 
 
 # -------------------------chart处理方法-------------------------------
@@ -1741,31 +1366,24 @@ def get_project_sheets(project_id):
                 'message': '项目不存在'
             }), 404
 
-        # 获取项目关联的所有Sheet
-        sheet_projects = SheetProject.query.filter_by(project_id=project_id).all()
-        sheet_ids = [sp.sheet_id for sp in sheet_projects]
+        # 获取项目关联的Sheet
+        sheet_project = SheetProject.query.filter_by(project_id=project_id).order_by(
+            SheetProject.sheet_id.desc()).first()
+        sheet = Sheet.query.filter(Sheet.id == sheet_project.sheet_id).first()
+        # 获取文件下的sheets
+        sheets = ExcelExec.get_table_sheets(sheet.file_path)
+        # 获取每个sheets的字段
+        sheet_column_params = {}
+        for sheet_name in sheets:
+            sheet_columns = ExcelExec.get_table_sheet_columns(sheet.file_path, sheet_name)
+            sheet_column_params[sheet_name] = sheet_columns
 
-        sheets = Sheet.query.filter(Sheet.id.in_(sheet_ids)).all() if sheet_ids else []
-
-        sheets_list = []
-        for sheet in sheets:
-            # 获取该Sheet下的Table数量
-            table_count = Table.query.filter_by(sheet_id=sheet.id).count()
-
-            sheets_list.append({
-                'id': sheet.id,
-                'name': sheet.name,
-                'file_path': sheet.file_path,
-                'table_count': table_count,
-                'created_at': sheet.created_at.strftime('%Y-%m-%d %H:%M') if sheet.created_at else '未知'
-            })
-
-        print(f"获取到项目 '{project.name}' 下的 {len(sheets_list)} 个Sheet")
-        return jsonify({
-            'success': True,
-            'sheets': sheets_list,
-            'count': len(sheets_list)
-        }), 200
+        return RequestsUtils.make_response(
+            status_code=200,
+            msg="获取列成功",
+            data=sheet_column_params,
+            success=True
+        )
 
     except Exception as e:
         print(f"=== 获取项目Sheet列表时发生异常 ===")

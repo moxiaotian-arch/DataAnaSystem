@@ -1855,6 +1855,13 @@ function executeDataMerge(requestData) {
 
     showMessage('正在处理数据合并...', 'info');
 
+    // 禁用确认按钮防止重复提交
+    const confirmBtn = document.getElementById('confirmMergeConfig');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>处理中...';
+    }
+
     fetch(`/data/api/project/${projectId}/merge-tables`, {
         method: 'POST',
         headers: {
@@ -1864,17 +1871,47 @@ function executeDataMerge(requestData) {
     })
         .then(response => response.json())
         .then(data => {
+            console.log('合并接口返回数据:', data);
+
             if (data.success) {
-                mergeConfigModal.hide();
-                showMessage('数据合并请求已提交成功！', 'success');
-                console.log('合并请求返回数据:', data);
+                // 合并成功处理
+                if (mergeConfigModal) {
+                    mergeConfigModal.hide();
+                }
+
+                let successMessage = data.message || '数据合并成功';
+
+                // 如果返回了工作簿数据，更新前端
+                if (data.workbook_data) {
+                    workbookData = {
+                        name: data.workbook_data.workbook_name || "合并后的工作簿",
+                        sheets: data.workbook_data.sheets || []
+                    };
+                    hasWorkbookData = workbookData.sheets.length > 0;
+                    activeSheetIndex = 0;
+                    updateWorkbookDisplay();
+                    successMessage += '，工作簿已更新';
+                } else {
+                    // 如果没有返回数据，重新加载
+                    loadWorkbookData();
+                }
+
+                showMessage(successMessage, 'success');
             } else {
-                throw new Error(data.message || '合并失败');
+                // 合并失败
+                showMessage(data.message || '数据合并失败', 'error');
             }
         })
         .catch(error => {
-            console.error('数据合并失败:', error);
+            console.error('数据合并请求失败:', error);
             showMessage(`数据合并失败: ${error.message}`, 'error');
+        })
+        .finally(() => {
+            // 重新启用确认按钮
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '确认合并';
+            }
         });
 }
 
