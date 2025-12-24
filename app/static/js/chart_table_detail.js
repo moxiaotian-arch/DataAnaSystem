@@ -28,8 +28,7 @@ class ChartTableDetail {
             console.log(`开始获取图表数据，图表类型ID: ${this.chartTypeId}, 页码: ${this.currentPage}`);
 
             const response = await fetch(`/data/api/chart-types/${this.chartTypeId}/charts/paginated?page=${this.currentPage}&per_page=${this.perPage}`, {
-                method: 'GET',
-                headers: {
+                method: 'GET', headers: {
                     'Content-Type': 'application/json',
                 }
             });
@@ -115,6 +114,11 @@ class ChartTableDetail {
                     onclick="chartTableDetail.previewChart(${chart.id})"
                     title="预览图表">
                 <i class="bi bi-eye me-1"></i>预览
+            </button>
+            <button class="btn btn-outline-warning btn-sm chart-detail-rename-btn" 
+                onclick="chartTableDetail.renameChart(${chart.id}, '${this.escapeHtml(chart.name || '未命名')}')"
+                title="重命名图表">
+                <i class="bi bi-pencil-square me-1"></i>重命名
             </button>
             <button class="btn btn-success btn-sm chart-detail-download-btn" 
                     onclick="chartTableDetail.downloadChartFromList(${chart.id})"
@@ -477,8 +481,7 @@ class ChartTableDetail {
         try {
             // 调用预览API获取图片
             const response = await fetch(`/data/api/charts/${chartId}/preview`, {
-                method: 'GET',
-                headers: {
+                method: 'GET', headers: {
                     'Content-Type': 'application/json',
                 }
             });
@@ -658,8 +661,7 @@ class ChartTableDetail {
 
             // 调用后端下载接口
             const response = await fetch(`/data/api/charts/${chartId}/download`, {
-                method: 'GET',
-                headers: {
+                method: 'GET', headers: {
                     'Content-Type': 'application/json',
                 }
             });
@@ -743,11 +745,11 @@ class ChartTableDetail {
     }
 
     showDownloadSuccess(message) {
-        this.showToast(message, 'success');
+        utils.show_msg(message, 'success');
     }
 
     showDownloadError(message) {
-        this.showToast(message, 'error');
+        utils.show_msg(message, 'error');
         console.error('下载错误:', message);
     }
 
@@ -795,6 +797,229 @@ class ChartTableDetail {
             this.showDownloadError('未找到当前预览的图表ID');
         }
     }
+
+    /**
+     * 重命名图表
+     */
+    renameChart(chartId, currentName) {
+        console.log(`开始重命名图表: ${chartId}, 当前名称: ${currentName}`);
+
+        // 存储当前图表ID
+        this.currentRenamingChartId = chartId;
+
+        // 显示重命名模态框
+        this.showRenameModal(chartId, currentName);
+    }
+
+    /**
+     * 显示重命名模态框
+     */
+    showRenameModal(chartId, currentName) {
+        // 设置表单值
+        document.getElementById('renameChartId').value = chartId;
+        document.getElementById('renameChartName').value = currentName;
+
+        // 显示模态框
+        const modal = new bootstrap.Modal(document.getElementById('renameChartModal'));
+        modal.show();
+
+        // 绑定确认按钮事件（确保只绑定一次）
+        const confirmBtn = document.getElementById('confirmRenameChart');
+        confirmBtn.onclick = () => this.confirmRenameChart();
+
+        // 绑定回车键提交
+        const nameInput = document.getElementById('renameChartName');
+        nameInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.confirmRenameChart();
+            }
+        };
+
+        // 模态框显示后自动聚焦到输入框
+        modal._element.addEventListener('shown.bs.modal', () => {
+            nameInput.focus();
+            nameInput.select();
+        });
+    }
+
+    /**
+     * 确认重命名图表
+     */
+    async confirmRenameChart() {
+        const chartId = document.getElementById('renameChartId').value;
+        const newName = document.getElementById('renameChartName').value.trim();
+
+        if (!newName) {
+            this.showRenameError('图表名称不能为空');
+            return;
+        }
+
+        if (newName.length > 100) {
+            this.showRenameError('图表名称不能超过100个字符');
+            return;
+        }
+
+        console.log(`确认重命名图表: ${chartId}, 新名称: ${newName}`);
+
+        try {
+            // 显示加载状态
+            this.showRenameLoading(true);
+
+            // 调用后端重命名接口
+            const response = await this.sendRenameRequest(chartId, newName);
+
+            if (response.success) {
+                this.handleRenameSuccess(chartId, newName, response);
+            } else {
+                this.handleRenameError(response.message);
+            }
+
+        } catch (error) {
+            console.error('重命名图表时发生错误:', error);
+            this.handleRenameError('网络错误: ' + error.message);
+        }
+    }
+
+    /**
+     * 发送重命名请求到后端
+     */
+    async sendRenameRequest(chartId, newName) {
+        const url = `/data/api/charts/${chartId}`;
+
+        const response = await fetch(url, {
+            method: 'PUT', headers: {
+                'Content-Type': 'application/json',
+            }, body: JSON.stringify({
+                chart_name: newName
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * 处理重命名成功
+     */
+    handleRenameSuccess(chartId, newName, response) {
+        console.log('图表重命名成功:', response);
+
+        // 隐藏模态框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('renameChartModal'));
+        modal.hide();
+
+        // 显示成功消息
+        utils.show_msg('图表重命名成功', 'success');
+
+        // 更新表格中的图表名称
+        this.updateChartNameInTable(chartId, newName);
+
+        // 重置表单
+        this.resetRenameForm();
+    }
+
+    /**
+     * 处理重命名错误
+     */
+    handleRenameError(errorMessage) {
+        this.showRenameError(errorMessage);
+        this.showRenameLoading(false);
+    }
+
+    /**
+     * 更新表格中的图表名称
+     */
+    updateChartNameInTable(chartId, newName) {
+        // 找到对应的表格行
+        const rows = document.querySelectorAll('#chart-list-body tr');
+
+        for (let row of rows) {
+            const chartIdCell = row.cells[0]; // 第一列是图表ID
+            if (chartIdCell.textContent === chartId.toString()) {
+                // 更新图表名称（第二列）
+                const nameCell = row.cells[1];
+                nameCell.textContent = newName;
+
+                // 更新重命名按钮中的名称（用于下次点击时显示）
+                const renameBtn = row.querySelector('.chart-detail-rename-btn');
+                const onclickAttr = renameBtn.getAttribute('onclick');
+                const newOnclick = onclickAttr.replace(/renameChart\(\d+, '([^']*)'\)/, `renameChart(${chartId}, '${this.escapeHtml(newName)}')`);
+                renameBtn.setAttribute('onclick', newOnclick);
+
+                break;
+            }
+        }
+    }
+
+    /**
+     * 显示重命名错误
+     */
+    showRenameError(message) {
+        // 在输入框下方显示错误信息
+        const input = document.getElementById('renameChartName');
+        const errorDiv = document.getElementById('renameChartError') || this.createRenameErrorElement();
+
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+
+        // 添加错误样式到输入框
+        input.classList.add('is-invalid');
+    }
+
+    /**
+     * 创建重命名错误提示元素
+     */
+    createRenameErrorElement() {
+        const errorDiv = document.createElement('div');
+        errorDiv.id = 'renameChartError';
+        errorDiv.className = 'invalid-feedback d-block';
+        errorDiv.style.display = 'none';
+
+        const formGroup = document.getElementById('renameChartName').closest('.mb-3');
+        formGroup.appendChild(errorDiv);
+
+        return errorDiv;
+    }
+
+    /**
+     * 显示/隐藏重命名加载状态
+     */
+    showRenameLoading(show) {
+        const confirmBtn = document.getElementById('confirmRenameChart');
+        const cancelBtn = document.querySelector('#renameChartModal .btn-secondary');
+
+        if (show) {
+            confirmBtn.disabled = true;
+            cancelBtn.disabled = true;
+            confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>重命名中...';
+        } else {
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            confirmBtn.innerHTML = '确认修改';
+        }
+    }
+
+    /**
+     * 重置重命名表单
+     */
+    resetRenameForm() {
+        document.getElementById('renameChartForm').reset();
+
+        // 清除错误状态
+        const input = document.getElementById('renameChartName');
+        input.classList.remove('is-invalid');
+
+        const errorDiv = document.getElementById('renameChartError');
+        if (errorDiv) {
+            errorDiv.style.display = 'none';
+        }
+
+        this.showRenameLoading(false);
+    }
 }
 
 // 全局函数：返回图表列表
@@ -807,9 +1032,7 @@ goBackToChartTable() {
 
 // 页面加载完成后初始化
 document
-    .addEventListener(
-        'DOMContentLoaded'
-        ,
+    .addEventListener('DOMContentLoaded',
 
         function () {
             console.log('DOM内容加载完成，初始化图表详情页面');
@@ -826,9 +1049,7 @@ document
                     }
                 };
             }
-        }
-    )
-;
+        });
 
 function
 
@@ -866,5 +1087,12 @@ function downloadChartFromList(chartId) {
 function downloadCurrentPreviewChart() {
     if (window.chartTableDetail) {
         window.chartTableDetail.downloadCurrentPreviewChart();
+    }
+}
+
+// 全局重命名函数
+function renameChart(chartId, currentName) {
+    if (window.chartTableDetail) {
+        window.chartTableDetail.renameChart(chartId, currentName);
     }
 }

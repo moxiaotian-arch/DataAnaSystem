@@ -1,0 +1,124 @@
+/* 系统消息提示样式 */
+.system-message-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    max-width: 400px;
+    pointer-events: none;
+}
+
+.system-message {
+    position: relative;
+    margin-bottom: 10px;
+    padding: 0;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: white;
+    border-left: 4px solid #007bff;
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.3s ease-in-out;
+    pointer-events: auto;
+    max-height: 0;
+    overflow: hidden;
+}
+
+.system-message.show {
+    transform: translateX(0);
+    opacity: 1;
+    max-height: 200px;
+    padding: 0;
+}
+
+.system-message.hiding {
+    transform: translateX(100%);
+    opacity: 0;
+    max-height: 0;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+.system-message-content {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    min-height: 60px;
+}
+
+.system-message-icon {
+    margin-right: 12px;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.system-message-text {
+    flex: 1;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-right: 8px;
+}
+
+.system-message-close {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    opacity: 0.6;
+    padding: 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    transition: opacity 0.2s;
+}
+
+.system-message-close:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* 消息类型样式 */
+.system-message-success {
+    border-left-color: #28a745;
+}
+
+.system-message-success .system-message-icon {
+    color: #28a745;
+}
+
+.system-message-error {
+    border-left-color: #dc3545;
+}
+
+.system-message-error .system-message-icon {
+    color: #dc3545;
+}
+
+.system-message-warning {
+    border-left-color: #ffc107;
+}
+
+.system-message-warning .system-message-icon {
+    color: #ffc107;
+}
+
+.system-message-info {
+    border-left-color: #17a2b8;
+}
+
+.system-message-info .system-message-icon {
+    color: #17a2b8;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .system-message-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+
+    .system-message {
+        max-width: none;
+    }
+}

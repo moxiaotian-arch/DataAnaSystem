@@ -326,7 +326,34 @@
     </div>
 </div>
 <!--预览图片模块-->
-
+<!-- 重命名图表模态框 -->
+<div class="modal fade" id="renameChartModal" tabindex="-1" aria-labelledby="renameChartModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="renameChartModalLabel">
+                    <i class="bi bi-pencil-square me-2"></i>重命名图表
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="renameChartForm">
+                    <input type="hidden" id="renameChartId">
+                    <div class="mb-3">
+                        <label for="renameChartName" class="form-label">图表名称</label>
+                        <input type="text" class="form-control" id="renameChartName"
+                               placeholder="请输入新的图表名称" required>
+                        <div class="form-text">图表名称不能为空，且不能与其他图表重名</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmRenameChart">确认修改</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block footer_mode %}图表详情模式 - {{ chart_type_name }}{% endblock %}
@@ -334,6 +361,7 @@
 {% block extra_css %}
 <link href="/static/css/chart_table_detail.css" rel="stylesheet">
 <link href="/static/css/select2.min.css" rel="stylesheet"/>
+<link href="/static/css/utils.css" rel="stylesheet"/>
 {% endblock %}
 
 {% block extra_js %}
@@ -353,5 +381,6 @@
 <!-- 引入分离的JS文件 -->
 <script src="/static/js/jquery-3.6.0.min.js"></script>
 <script src="/static/js/select2.min.js"></script>
+<script src="/static/js/utils.js"></script>
 <script src="/static/js/chart_table_detail.js"></script>
 {% endblock %}
