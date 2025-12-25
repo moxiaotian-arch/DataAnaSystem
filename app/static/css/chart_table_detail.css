@@ -15,40 +15,13 @@
     background-color: #f8f9fa;
 }
 
-.chart-detail-btn-group-sm > .btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-}
-
 .chart-detail-font-monospace {
     font-family: 'Courier New', monospace;
-}
-
-.chart-detail-preview-placeholder {
-    border: 2px dashed #dee2e6;
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
-    color: #6c757d;
-}
-
-.chart-detail-toast-container {
-    z-index: 1055;
-    position: fixed;
-    top: 20px;
-    right: 20px;
-}
-
-.chart-detail-pagination {
-    margin-bottom: 0;
-    margin-top: 20px;
-    justify-content: center;
-}
-
-.chart-detail-actions {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
+    font-size: 0.875rem;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .chart-detail-content-card {
@@ -69,297 +42,52 @@
     padding: 1.5rem;
 }
 
+/* 表格样式 */
 .chart-detail-table-responsive {
-    border-radius: 0 0 8px 8px;
-    border: 1px solid #e0e0e0;
-    border-top: none;
+    overflow-x: auto;
 }
 
-.chart-detail-loading-spinner {
-    display: inline-block;
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: chart-detail-spinner-border 0.75s linear infinite;
+.chart-detail-table-responsive table {
+    width: 100%;
+    min-width: 600px;
 }
 
-/* 添加表格行悬停效果 */
-.chart-detail-table-hover tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.025);
-}
-
-/* 添加响应式设计 */
+/* 响应式调整 */
 @media (max-width: 768px) {
     .chart-detail-content {
         padding: 10px;
     }
 
-    .chart-detail-actions {
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-
-    .chart-detail-card-header {
-        flex-direction: column;
-        gap: 1rem;
+    .chart-detail-card-body {
+        padding: 1rem;
     }
 }
 
-@keyframes chart-detail-spinner-border {
-    to {
-        transform: rotate(360deg);
-    }
+/* 操作列样式 */
+.chart-detail-table-responsive table td:last-child {
+    white-space: nowrap;
+    width: 120px;
 }
 
-/* 图表详情页面特有的样式增强 */
-.chart-detail-modal-content {
-    border-radius: 12px;
-    border: none;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
-
-.chart-detail-modal-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-bottom: none;
-    border-radius: 12px 12px 0 0;
-}
-
-.chart-detail-modal-header .btn-close {
-    filter: invert(1);
-}
-
-.chart-detail-status-badge {
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.chart-detail-status-active {
-    background-color: #d4edda;
-    color: #155724;
-}
-
-/* 预览功能样式 */
-.chart-detail-preview-btn {
+/* 按钮样式调整 */
+.chart-detail-table-responsive .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.875rem;
 }
 
-.chart-preview-modal .modal-dialog {
-    max-width: 90%;
-    height: 90vh;
-}
-
-.chart-preview-image-container {
-    position: relative;
-    width: 100%;
-    height: 600px;
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.chart-preview-image {
+/* 图片预览弹窗样式 */
+#preview-image {
+    max-height: 60vh;
     max-width: 100%;
-    max-height: 100%;
-    transition: transform 0.3s ease;
+    object-fit: contain;
 }
 
-.chart-preview-controls {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(255, 255, 255, 0.9);
-    padding: 10px 15px;
-    border-radius: 25px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.chart-preview-zoom-controls {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.chart-preview-zoom-level {
-    min-width: 60px;
-    text-align: center;
-    font-weight: 600;
-}
-
-.chart-preview-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
-    color: #6c757d;
-}
-
-.chart-preview-error {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
-    color: #dc3545;
-}
-
-.chart-preview-info {
-    background-color: #f8f9fa;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 15px;
-}
-
-.chart-preview-info-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
-}
-
-.chart-preview-info-label {
-    font-weight: 600;
-    color: #495057;
-}
-
-.chart-preview-info-value {
-    color: #6c757d;
-}
-
-/* 图片操作按钮样式 */
-.btn-preview-action {
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-}
-
-/* 响应式调整 */
-@media (max-width: 768px) {
-    .chart-preview-modal .modal-dialog {
-        max-width: 95%;
-        height: 80vh;
-    }
-
-    .chart-preview-image-container {
-        height: 400px;
-    }
-
-    .chart-preview-controls {
-        flex-wrap: wrap;
-        justify-content: center;
-        bottom: 10px;
-        padding: 8px 12px;
-    }
-}
-
-/* Toast提示样式 */
-.chart-toast-container {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 9999;
-    max-width: 350px;
-}
-
-.chart-toast {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    margin-bottom: 10px;
-    border-left: 4px solid #007bff;
-    animation: slideInRight 0.3s ease-out;
-}
-
-.chart-toast-success {
-    border-left-color: #28a745;
-}
-
-.chart-toast-error {
-    border-left-color: #dc3545;
-}
-
-.chart-toast-warning {
-    border-left-color: #ffc107;
-}
-
-.chart-toast-content {
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.chart-toast-message {
-    flex: 1;
-    margin-right: 10px;
-}
-
-.chart-toast-close {
-    background: none;
-    border: none;
-    font-size: 1.2rem;
-    cursor: pointer;
-    opacity: 0.7;
-    padding: 4px;
-}
-
-.chart-toast-close:hover {
-    opacity: 1;
-}
-
-@keyframes slideInRight {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-/* 下载按钮样式 */
-.chart-detail-download-btn {
-    padding: 0.25rem 0.5rem;
+/* 预览信息样式 */
+#preview-info {
     font-size: 0.875rem;
-}
-
-/* 重命名模态框样式 */
-.chart-rename-loading {
-    display: none;
 }
 
 /* 错误状态样式 */
-.is-invalid {
-    border-color: #dc3545;
-}
-
-.invalid-feedback {
-    display: none;
-    width: 100%;
-    margin-top: 0.25rem;
-    font-size: 0.875em;
-    color: #dc3545;
-}
-
-/* 重命名按钮样式 */
-.chart-detail-rename-btn {
-    margin: 0 2px;
+#preview-error {
+    padding: 2rem 0;
 }
