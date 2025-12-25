@@ -75,19 +75,16 @@ data_project_bp.route('/api/chart-types/<int:chart_type_id>/charts', methods=['G
 
 # 图表文件夹详情页面路由
 data_project_bp.route('/projects/<int:project_id>/chart-types/<int:chart_type_id>',
-                     methods=['GET'],
-                     endpoint='page_chart_table_detail')(html_views.chart_table_detail)
+                      methods=['GET'],
+                      endpoint='page_chart_table_detail')(html_views.chart_table_detail)
 
 # 图表相关API路由
 data_project_bp.route('/api/charts', methods=['POST'], endpoint='api_chart_create')(func_views.create_chart)
-data_project_bp.route('/api/charts/<int:chart_id>', methods=['GET'], endpoint='api_chart_detail')(func_views.get_chart_detail)
-data_project_bp.route('/api/charts/<int:chart_id>', methods=['PUT'], endpoint='api_chart_update')(func_views.update_chart)
-data_project_bp.route('/api/charts/<int:chart_id>', methods=['DELETE'], endpoint='api_chart_delete')(func_views.delete_chart)
 
 # 图表分页数据API路由
 data_project_bp.route('/api/chart-types/<int:chart_type_id>/charts/paginated',
-                     methods=['GET'],
-                     endpoint='api_chart_type_charts_paginated')(
+                      methods=['GET'],
+                      endpoint='api_chart_type_charts_paginated')(
     func_views.get_charts_by_type_with_pagination)
 
 # 获取项目下的Sheet列表
@@ -102,16 +99,28 @@ data_project_bp.route('/api/sheets/<int:sheet_id>/headers', methods=['GET'], end
 data_project_bp.route('/api/charts/generate', methods=['POST'], endpoint='api_chart_generate')(
     func_views.generate_chart)
 
-# 图表预览路由
-data_project_bp.route('/api/charts/<int:chart_id>/preview', methods=['GET'], endpoint='api_chart_preview')(
-    func_views.preview_chart)
-
-# 图表下载路由
-data_project_bp.route('/api/charts/<int:chart_id>/download', methods=['GET'], endpoint='api_chart_download')(
-    func_views.download_chart)
-
 # 数据合并API路由
 data_project_bp.route('/api/project/<int:project_id>/merge-tables', methods=['POST'], endpoint='api_merge_tables')(
     func_views.merge_tables)
 
-
+# -----------------------------图路由-----------------------------------------
+# 获取图的列表，基于project_id和图的type_id获取
+data_project_bp.route('/api/project/<int:project_id>/chart', methods=['GET'])(
+    func_views.get_chart_list_by_project_id_or_type_id
+)
+# 修改图信息，基于图id即可
+data_project_bp.route('/api/charts/<int:chart_id>', methods=['POST'])(
+    func_views.update_chart)
+# 获取指定图信息
+data_project_bp.route('/api/charts/<int:chart_id>', methods=['GET'])(
+    func_views.get_chart_by_id)
+# 预览指定图
+data_project_bp.route('/api/charts/<int:chart_id>/img_pre_view', methods=['GET'])(
+    func_views.get_img_pre_view
+)
+# 删除指定图
+data_project_bp.route('/api/charts/<int:chart_id>', methods=['DELETE'])(
+    func_views.delete_chart_by_id)
+# 下载指定图
+data_project_bp.route('/api/charts/<int:chart_id>/download', methods=['GET'])(
+    func_views.download_chart)
