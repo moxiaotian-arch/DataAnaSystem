@@ -529,7 +529,7 @@ function preloadTableHeaders(tableId) {
 }
 
 // 监听表格选择变化
-document.getElementById('tableSelect').addEventListener('change', function() {
+document.getElementById('tableSelect').addEventListener('change', function () {
     const tableId = this.value;
     if (tableId) {
         preloadTableHeaders(tableId);
@@ -680,7 +680,7 @@ function removeYAxis(columnName) {
 }
 
 // 监听图表名称输入
-document.getElementById('chartNameInput').addEventListener('input', function() {
+document.getElementById('chartNameInput').addEventListener('input', function () {
     selectedData.chartName = this.value;
 });
 
@@ -730,22 +730,26 @@ function generateChart() {
         },
         body: JSON.stringify(requestData)
     })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP错误! 状态码: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('图表生成接口返回数据:', data);
+
             if (data.success) {
-                showTempMessage('图表生成成功！', 'success');
-                // 关闭弹窗
-                const modal = bootstrap.Modal.getInstance(document.getElementById('createChartModal'));
-                modal.hide();
-                // 重新加载图表列表
-                loadChartList();
+                // 图表生成成功处理
+                handleChartGenerationSuccess(data);
             } else {
-                alert('图表生成失败: ' + data.msg);
+                // 图表生成失败
+                throw new Error(data.msg || '图表生成失败');
             }
         })
         .catch(error => {
             console.error('生成图表失败:', error);
-            alert('网络请求失败，请检查连接');
+            handleChartGenerationError(error);
         })
         .finally(() => {
             // 恢复按钮状态
@@ -754,8 +758,57 @@ function generateChart() {
         });
 }
 
+// 图表生成成功处理函数
+function handleChartGenerationSuccess(responseData) {
+    const chartData = responseData.data.chart;
+
+    // 显示成功消息
+    showTempMessage('图表生成成功！', 'success');
+
+    // 可选：在控制台输出详细信息
+    console.log('图表生成成功详情:', {
+        id: chartData.id,
+        name: chartData.name,
+        type: chartData.type,
+        createTime: chartData.create_time,
+        filePath: chartData.file_path
+    });
+
+    // 关闭弹窗
+    const modal = bootstrap.Modal.getInstance(document.getElementById('createChartModal'));
+    if (modal) {
+        modal.hide();
+    }
+
+    // 重新加载图表列表
+    loadChartList();
+
+    // 可选：自动跳转到图表详情页或显示预览
+    // setTimeout(() => {
+    //     previewChart(chartData.id);
+    // }, 1000);
+}
+
+// 图表生成失败处理函数
+function handleChartGenerationError(error) {
+    let errorMessage = '图表生成失败';
+
+    if (error.message.includes('HTTP错误')) {
+        errorMessage = '网络请求失败，请检查服务器连接';
+    } else if (error.message.includes('图表生成失败')) {
+        errorMessage = error.message;
+    } else {
+        errorMessage = `生成过程中出现错误: ${error.message}`;
+    }
+
+    alert(errorMessage);
+
+    // 可选：显示错误提示
+    showTempMessage(errorMessage, 'error');
+}
+
 // 页面加载完成后初始化
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // 初始化项目sheet信息
     initProjectSheet();
     // 加载图表列表
