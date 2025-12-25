@@ -88,5 +88,5 @@ def init_db(app, db_instance):
 
 def register_blueprints(app):
     """从独立文件注册蓝图"""
-    from app.urls import register_urls
+    from app.all_urls import register_urls
     register_urls(app)

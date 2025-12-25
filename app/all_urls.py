@@ -1,4 +1,4 @@
-# app/urls.py
+# app/all_urls.py
 import logging
 from flask import Blueprint, redirect
 

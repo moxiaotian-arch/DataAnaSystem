@@ -1342,26 +1342,31 @@ def generate_chart():
 
         # 获取请求数据
         data = request.get_json()
-
+        print("获取到的数据为:", data)
+        # {'project_id': 4, 'chart_type_id': 1, 'sheet_id': 12,
+        # 'table_id': 29, 'x_axis': '时间', 'y_axis': ['天气数据_综合温度'],
+        # 'category': '彩椒种类', 'chart_name': '彩椒生长数据_图表_1766686594537'}
         if not data:
-            return jsonify({
-                'success': False,
-                'message': '请求数据不能为空'
-            }), 400
-
-        # 打印接收到的数据
-        print("前端发送的数据:")
-        print(json.dumps(data, ensure_ascii=False, indent=2))
-
-        # 验证必填字段 - 添加sheet_id和table_id验证
-        required_fields = ['project_id', 'chart_type_id', 'sheet_id', 'table_id', 'x_axis', 'y_axis', 'chart_name']
+            return RequestsUtils.make_response(
+                status_code=400,
+                msg='请求数据不能为空',
+                success=False
+            )
+        required_fields = [
+            'project_id',
+            'chart_type_id',
+            'sheet_id',
+            'table_id',
+            'x_axis',
+            'y_axis',
+            'chart_name']
         for field in required_fields:
             if field not in data or not data[field]:
-                return jsonify({
-                    'success': False,
-                    'message': f'{field}字段不能为空'
-                }), 400
-
+                return RequestsUtils.make_response(
+                    status_code=400,
+                    msg=f'{field}字段不能为空',
+                    success=False
+                )
         # 提取参数
         project_id = data['project_id']
         chart_type_id = data['chart_type_id']
@@ -1375,46 +1380,10 @@ def generate_chart():
         print(f"开始处理图表生成: 项目ID={project_id}, 图表类型ID={chart_type_id}")
         print(f"Sheet ID: {sheet_id}, Table ID: {table_id}")
 
-        # 1. 验证项目、Sheet、Table、图表类型是否存在
         project = DataProject.query.get(project_id)
-        if not project:
-            return jsonify({
-                'success': False,
-                'message': '项目不存在'
-            }), 404
-
         chart_type = ChartType.query.get(chart_type_id)
-        if not chart_type:
-            return jsonify({
-                'success': False,
-                'message': '图表类型不存在'
-            }), 404
-
-        # 验证Sheet是否存在
         sheet = Sheet.query.get(sheet_id)
-        if not sheet:
-            return jsonify({
-                'success': False,
-                'message': 'Sheet不存在'
-            }), 404
-
-        # 验证Table是否存在
         table = Table.query.get(table_id)
-        if not table:
-            return jsonify({
-                'success': False,
-                'message': 'Table不存在'
-            }), 404
-
-        # 验证Table是否属于指定的Sheet
-        if table.sheet_id != sheet.id:
-            return jsonify({
-                'success': False,
-                'message': 'Table不属于指定的Sheet'
-            }), 400
-
-        print(f"验证通过: Sheet文件路径={sheet.file_path}, Table名称={table.name}")
-
         # 2. 读取Excel数据 - 使用table.name作为工作表名称
         print(f"读取Excel文件: {sheet.file_path}, 工作表: {table.name}")
         try:
@@ -1424,47 +1393,20 @@ def generate_chart():
             print(f"数据列: {list(df.columns)}")
         except Exception as e:
             print(f"读取Excel文件失败: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': f'读取Excel文件失败: {str(e)}'
-            }), 500
-
-        # 3. 验证选择的列是否存在
+            return RequestsUtils.make_response(
+                status_code=500,
+                msg=f'读取Excel文件失败: {str(e)}',
+                success=False
+            )
         all_columns = list(df.columns)
-        missing_columns = []
-
-        # 检查X轴列
-        if x_axis not in all_columns:
-            missing_columns.append(f"X轴: {x_axis}")
-
-        # 检查Y轴列
-        for y_col in y_axis:
-            if y_col not in all_columns:
-                missing_columns.append(f"Y轴: {y_col}")
-
-        # 检查分类列（如果存在）
-        if category and category not in all_columns:
-            missing_columns.append(f"分类: {category}")
-
-        if missing_columns:
-            return jsonify({
-                'success': False,
-                'message': f'以下列在数据中不存在: {", ".join(missing_columns)}'
-            }), 400
-
+        # 向data加入数据
+        data['data'] = df
         # 4. 生成图表（这里需要根据您的ChartUtils实现来调整）
         try:
-            # 创建图表对象 - 根据您的实际图表生成逻辑调整
-            # 示例：使用散点图
-            plt = ChartUtils.scatter_chart(
-                chart_index=0,
-                data=df,
-                x_axis=x_axis,
-                y_axis=y_axis,
-                category=category,
-                chart_name=chart_name
+            plt = ChartUtils.gen_chart(
+                chart_type_id,
+                params=data
             )
-
             # 生成图表文件路径
             chart_file_path = ChartUtils.save_chart(
                 plt=plt,
@@ -1478,11 +1420,11 @@ def generate_chart():
 
         except Exception as e:
             print(f"生成图表失败: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': f'生成图表失败: {str(e)}'
-            }), 500
-
+            return RequestsUtils.make_response(
+                status_code=500,
+                msg=f'生成图表失败: {str(e)}',
+                success=False
+            )
         # 5. 数据库操作 - 开启事务
         try:
             # 创建chart_data记录
@@ -1496,8 +1438,6 @@ def generate_chart():
             db.session.flush()  # 获取ID但不提交
 
             chart_id = new_chart.id
-            print(f"创建ChartData记录，ID: {chart_id}")
-
             # 创建chart_projects关联记录
             chart_project = ChartProject(
                 chart_id=chart_id,
@@ -1508,21 +1448,20 @@ def generate_chart():
 
             # 提交所有数据库操作
             db.session.commit()
-
-            print("图表生成和保存完成")
-
-            # 返回成功响应
-            return jsonify({
-                'success': True,
-                'message': '图表生成成功',
-                'chart': {
-                    'id': chart_id,
-                    'name': chart_name,
-                    'type': chart_type.type_name,
-                    'file_path': chart_file_path,
-                    'create_time': new_chart.created_at.strftime('%Y-%m-%d %H:%M')
+            return RequestsUtils.make_response(
+                status_code=200,
+                msg=f'图表生成成功',
+                success=True,
+                data={
+                    'chart': {
+                        'id': chart_id,
+                        'name': chart_name,
+                        'type': chart_type.type_name,
+                        'file_path': chart_file_path,
+                        'create_time': new_chart.created_at.strftime('%Y-%m-%d %H:%M')
+                    }
                 }
-            }), 200
+            )
 
         except Exception as e:
             db.session.rollback()
@@ -2112,7 +2051,7 @@ def download_chart(chart_id):
 
 
 # -----------------------------表的方法-----------------------------------------
-# 通过
+# 通过sheet_id获取页签的列表
 def get_tables_by_sheet_id(sheet_id):
     """
     通过sheet_id获取sheet下的tables
@@ -2241,5 +2180,70 @@ def get_table_headers_by_table_id(table_id):
         return RequestsUtils.make_response(
             status_code=500,
             msg=f'获取表头失败: {str(e)}',
+            success=False
+        )
+
+
+# -----------------------------项目的方法-----------------------------------------
+def get_sheet_by_project_id(project_id):
+    """
+    通过project_id获取项目下的sheet
+    1、从请求中获取到project_id
+    2、从project中获取到sheet的信息
+    3、使用RequestsUtils.make_response打包返回值
+    """
+    try:
+        print(f"=== 获取项目Sheet基本信息请求 ===")
+        print(f"项目ID: {project_id}")
+
+        # 1. 验证项目是否存在
+        project = DataProject.query.get(project_id)
+        if not project:
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='项目不存在',
+                success=False
+            )
+
+        # 2. 获取项目关联的Sheet信息
+        sheet_projects = SheetProject.query.filter_by(project_id=project_id).all()
+
+        if not sheet_projects:
+            return RequestsUtils.make_response(
+                status_code=200,
+                msg='项目下暂无Sheet数据',
+                data=[],
+                success=True
+            )
+
+        # 3. 构建简化的Sheet信息列表
+        sheets_list = []
+        for sheet_project in sheet_projects:
+            sheet = Sheet.query.get(sheet_project.sheet_id)
+            if sheet:
+                sheets_list.append({
+                    'id': sheet.id,
+                    'name': sheet.name,
+                    'file_path': sheet.file_path,
+                    'file_exists': os.path.exists(sheet.file_path) if sheet.file_path else False,
+                    'create_time': sheet.created_at.strftime('%Y-%m-%d %H:%M') if sheet.created_at else None
+                })
+
+        print(f"获取到项目 {project_id} 下的 {len(sheets_list)} 个Sheet")
+
+        # 4. 返回简化响应
+        return RequestsUtils.make_response(
+            status_code=200,
+            msg='获取项目Sheet信息成功',
+            data=sheets_list,
+            success=True
+        )
+
+
+    except Exception as e:
+        print(f"获取项目Sheet信息时发生异常: {str(e)}")
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'获取项目Sheet信息失败: {str(e)}',
             success=False
         )

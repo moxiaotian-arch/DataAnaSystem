@@ -18,13 +18,13 @@
 {% block project_description %}管理 {{ chart_type_name }} 类型的图表数据{% endblock %}
 {% block project_stats %}图表总数: <span id="chart-count">0</span>{% endblock %}
 {% block action_buttons %}
+<button class="btn btn-primary" type="button" onclick="openCreateChartModal()">
+  <i class="bi bi-plus-circle me-1"></i>新建图
+</button>
 <button class="btn btn-outline-secondary" onclick="goBackToChartTable()">
     <i class="bi bi-arrow-left me-1"></i>返回图表列表
 </button>
-<button class="btn btn-success" onclick="chartTableDetail.showChartConfigModal()">
-    <i class="bi bi-plus-circle me-1"></i>新建图表
-</button>
-<button class="btn btn-outline-primary" onclick="chartTableDetail.refreshChartList()">
+<button class="btn btn-outline-primary" onclick="loadChartList()">
     <i class="bi bi-arrow-clockwise me-1"></i>刷新
 </button>
 {% endblock %}
@@ -37,12 +37,7 @@
                 {{ chart_type_name }} - 图表列表
             </h5>
             <div class="chart-detail-actions">
-                <button class="btn btn-sm btn-outline-primary" onclick="importChart()">
-                    <i class="bi bi-upload me-1"></i>导入图表
-                </button>
-                <button class="btn btn-sm btn-outline-success" onclick="exportCharts()">
-                    <i class="bi bi-download me-1"></i>导出全部
-                </button>
+                <span class="text-muted">图表总数: <span id="chart-count-header">0</span></span>
             </div>
         </div>
         <div class="chart-detail-card-body">
@@ -55,7 +50,7 @@
                         <th>图名</th>
                         <th>图路径</th>
                         <th>创建时间</th>
-                        <th>功能模块</th>
+                        <th>操作</th>  <!-- 新增操作列 -->
                     </tr>
                     </thead>
                     <tbody id="chart-list-body">
@@ -64,292 +59,157 @@
                 </table>
             </div>
 
-            <!-- 分页控件容器 -->
-            <div id="pagination-container">
-                <!-- 分页控件将通过JavaScript动态生成 -->
+            <!-- 空状态提示 -->
+            <div id="empty-state" class="chart-detail-empty-state" style="display: none;">
+                <i class="bi bi-inbox" style="font-size: 3rem; color: #dee2e6;"></i>
+                <p class="mt-3">暂无图表数据</p>
             </div>
         </div>
     </div>
-</div>
-<div class="modal fade" id="chartConfigModal" tabindex="-1" aria-labelledby="chartConfigModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="chartConfigModalLabel">配置图表参数</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row">
-                    <!-- 左侧：Sheet列表 -->
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-header">
-                                <h6 class="mb-0"><i class="bi bi-table me-2"></i>数据表选择</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="list-group" id="sheet-list">
-                                    <!-- Sheet列表将通过JavaScript动态加载 -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- 右侧：配置区域 -->
-                    <div class="col-md-8">
-                        <div class="card">
-                            <div class="card-header">
-                                <h6 class="mb-0"><i class="bi bi-sliders me-2"></i>图表配置</h6>
-                            </div>
-                            <div class="card-body">
-                                <!-- 横轴选择 -->
-                                <div class="mb-3">
-                                    <label for="x-axis-select" class="form-label">横轴 (X轴) <span
-                                            class="text-danger">*</span></label>
-                                    <select class="form-select" id="x-axis-select">
-                                        <option value="">请选择...</option>
-                                    </select>
-                                </div>
-
-                                <!-- 纵轴选择 -->
-                                <div class="mb-3">
-                                    <label for="y-axis-select" class="form-label">纵轴 (Y轴) <span
-                                            class="text-danger">*</span></label>
-                                    <select class="form-select" id="y-axis-select" multiple>
-                                        <option value="">请选择...</option>
-                                    </select>
-                                </div>
-
-                                <!-- 分类字段选择 -->
-                                <div class="mb-3">
-                                    <label for="category-select" class="form-label">分类字段</label>
-                                    <select class="form-select" id="category-select">
-                                        <option value="">请选择...</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <!-- 新增图片预览弹窗 -->
+    <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imagePreviewModalLabel">图表预览</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" id="confirm-chart-config">确认生成</button>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="modal fade" id="createChartModal" tabindex="-1" aria-labelledby="createChartModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createChartModalLabel">新建图表 - {{ chart_type_name }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="createChartForm">
-                    <div class="row">
-                        <!-- 左侧：Sheet选择 -->
-                        <div class="col-md-4">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h6 class="mb-0"><i class="bi bi-table me-2"></i>数据表选择</h6>
-                                </div>
-                                <div class="card-body">
-                                    <div class="mb-3">
-                                        <label for="sheetSelect" class="form-label">选择数据表</label>
-                                        <select class="form-select" id="sheetSelect" onchange="loadSheetHeaders()">
-                                            <option value="">请选择数据表...</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 右侧：表头选择 -->
-                        <div class="col-md-8">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h6 class="mb-0"><i class="bi bi-columns me-2"></i>字段配置</h6>
-                                </div>
-                                <div class="card-body">
-                                    <!-- 图表名称 -->
-                                    <div class="row mb-3">
-                                        <div class="col-12">
-                                            <label for="chartName" class="form-label">图表名称</label>
-                                            <input type="text" class="form-control" id="chartName"
-                                                   placeholder="请输入图表名称" required>
-                                        </div>
-                                    </div>
-
-                                    <!-- 横轴选择 -->
-                                    <div class="row mb-3">
-                                        <div class="col-12">
-                                            <label class="form-label">横轴 (X轴) <span
-                                                    class="text-danger">*</span></label>
-                                            <p class="small text-muted">只能选择一个字段作为横轴（如：时间）</p>
-                                            <div id="xAxisContainer">
-                                                <!-- 横轴选项将通过JavaScript动态加载 -->
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- 纵轴选择 -->
-                                    <div class="row mb-3">
-                                        <div class="col-12">
-                                            <label class="form-label">纵轴 (Y轴) <span
-                                                    class="text-danger">*</span></label>
-                                            <p class="small text-muted">
-                                                可以选择多个字段作为纵轴（如：根茎生长、叶面积等）</p>
-                                            <div id="yAxisContainer">
-                                                <!-- 纵轴选项将通过JavaScript动态加载 -->
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- 分类器选择 -->
-                                    <div class="row mb-3">
-                                        <div class="col-12">
-                                            <label class="form-label">分类器</label>
-                                            <p class="small text-muted">选择分类字段（如：种类、品种等）</p>
-                                            <div id="classifierContainer">
-                                                <!-- 分类器选项将通过JavaScript动态加载 -->
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- 图表样式选项 -->
-                                    <div class="row mb-3">
-                                        <div class="col-6">
-                                            <label for="chartTitle" class="form-label">图表标题</label>
-                                            <input type="text" class="form-control" id="chartTitle"
-                                                   placeholder="自动生成图表标题">
-                                        </div>
-                                        <div class="col-6">
-                                            <label for="chartSize" class="form-label">图表尺寸</label>
-                                            <select class="form-select" id="chartSize">
-                                                <option value="10,6">标准 (10×6)</option>
-                                                <option value="12,8">大图 (12×8)</option>
-                                                <option value="8,6">小图 (8×6)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" onclick="createChartWithData()">生成图表</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!--预览图片模块-->
-<div class="modal fade" id="chartPreviewModal" tabindex="-1" aria-labelledby="chartPreviewModalLabel"
-     aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="chartPreviewModalLabel">
-                    <i class="bi bi-eye me-2"></i>图表预览
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <!-- 图表信息 -->
-                <div class="chart-preview-info">
-                    <div class="chart-preview-info-row">
-                        <span class="chart-preview-info-label">图表ID:</span>
-                        <span class="chart-preview-info-value" id="previewChartId">-</span>
-                    </div>
-                    <div class="chart-preview-info-row">
-                        <span class="chart-preview-info-label">图表名称:</span>
-                        <span class="chart-preview-info-value" id="previewChartName">-</span>
-                    </div>
-                    <div class="chart-preview-info-row">
-                        <span class="chart-preview-info-label">创建时间:</span>
-                        <span class="chart-preview-info-value" id="previewChartTime">-</span>
-                    </div>
-                </div>
-
-                <!-- 图片预览区域 -->
-                <div class="chart-preview-image-container">
-                    <div class="chart-preview-loading" id="previewLoading">
+                <div class="modal-body text-center">
+                    <div id="preview-loading" class="d-none">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">加载中...</span>
                         </div>
-                        <div class="mt-2">正在加载图表图片...</div>
+                        <p class="mt-2">正在加载图片...</p>
                     </div>
-
-                    <div class="chart-preview-error" id="previewError" style="display: none;">
+                    <div id="preview-content" class="d-none">
+                        <img id="preview-image" src="" alt="图表预览" class="img-fluid" style="max-height: 70vh;">
+                        <div class="mt-3">
+                            <small class="text-muted" id="preview-info"></small>
+                        </div>
+                    </div>
+                    <div id="preview-error" class="d-none">
                         <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
-                        <div class="mt-2" id="previewErrorMessage">图片加载失败</div>
-                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="chartTableDetail.retryPreview()">
-                            <i class="bi bi-arrow-clockwise me-1"></i>重试加载
-                        </button>
+                        <p class="mt-2 text-danger" id="error-message"></p>
                     </div>
-
-
                 </div>
-
-                <!-- 控制工具栏 -->
-                <div class="chart-preview-controls">
-                    <div class="chart-preview-zoom-controls">
-                        <button class="btn btn-outline-secondary btn-preview-action"
-                                onclick="chartTableDetail.zoomOut()" title="缩小">
-                            <i class="bi bi-dash-lg"></i>
-                        </button>
-                        <span class="chart-preview-zoom-level" id="zoomLevel">100%</span>
-                        <button class="btn btn-outline-secondary btn-preview-action"
-                                onclick="chartTableDetail.zoomIn()" title="放大">
-                            <i class="bi bi-plus-lg"></i>
-                        </button>
-                    </div>
-
-                    <button class="btn btn-outline-secondary btn-preview-action"
-                            onclick="chartTableDetail.resetZoom()" title="重置缩放">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                    </button>
-
-                    <button class="btn btn-outline-primary"
-                            onclick="chartTableDetail.downloadChart()" title="下载图片">
-                        <i class="bi bi-download me-1"></i>下载
-                    </button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
             </div>
         </div>
     </div>
-</div>
-<!--预览图片模块-->
-<!-- 重命名图表模态框 -->
-<div class="modal fade" id="renameChartModal" tabindex="-1" aria-labelledby="renameChartModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-md">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="renameChartModalLabel">
-                    <i class="bi bi-pencil-square me-2"></i>重命名图表
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="renameChartForm">
-                    <input type="hidden" id="renameChartId">
-                    <div class="mb-3">
-                        <label for="renameChartName" class="form-label">图表名称</label>
-                        <input type="text" class="form-control" id="renameChartName"
-                               placeholder="请输入新的图表名称" required>
-                        <div class="form-text">图表名称不能为空，且不能与其他图表重名</div>
+
+    <!-- 新建图表弹窗 -->
+    <div class="modal fade" id="createChartModal" tabindex="-1" aria-labelledby="createChartModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createChartModalLabel">新建图表</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- 步骤1: 选择Sheet和Table -->
+                    <div id="step1" class="step-content">
+                        <div class="mb-4">
+                            <h6>选择数据表格</h6>
+                            <p class="text-muted">从项目的工作表中选择要生成图表的数据表格</p>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">选择表格</label>
+                            <select class="form-select" id="tableSelect">
+                                <option value="">请选择表格</option>
+                                <!-- 通过API动态加载 -->
+                            </select>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">表格信息</h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="tableInfo" class="text-muted">
+                                    请先选择表格以查看详细信息
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" id="confirmRenameChart">确认修改</button>
+
+                    <!-- 步骤2: 选择图表参数 -->
+                    <div id="step2" class="step-content" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">图表名称</label>
+                                    <input type="text" class="form-control" id="chartNameInput"
+                                           placeholder="请输入图表名称">
+                                </div>
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">X轴</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="selected-column" id="selectedXAxis">未选择</div>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Y轴</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="selected-columns" id="selectedYAxis">
+                                            <div class="text-muted">未选择</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">分类器</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="selected-column" id="selectedCategory">未选择</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-9">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">表头列表</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                <tr>
+                                                    <th>列名</th>
+                                                    <th>类型</th>
+                                                    <th>示例数据</th>
+                                                    <th>操作</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody id="headersTableBody">
+                                                <!-- 通过API动态加载 -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelBtn" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-secondary" id="prevBtn" style="display: none;"
+                            onclick="showStep1()">上一步
+                    </button>
+                    <button type="button" class="btn btn-primary" id="nextBtn" onclick="showStep2()">下一步</button>
+                    <button type="button" class="btn btn-success" id="generateBtn" style="display: none;"
+                            onclick="generateChart()">生成
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -360,27 +220,16 @@
 
 {% block extra_css %}
 <link href="/static/css/chart_table_detail.css" rel="stylesheet">
-<link href="/static/css/select2.min.css" rel="stylesheet"/>
-<link href="/static/css/utils.css" rel="stylesheet"/>
 {% endblock %}
 
 {% block extra_js %}
-
 <!-- 设置页面数据 -->
 <script>
-    console.log('页面加载状态:', document.readyState);
-    console.log('查找chartConfigModal元素:', document.getElementById('chartConfigModal'));
-    console.log('所有模态框元素:', document.querySelectorAll('.modal'));
-
     // 设置页面数据
     document.body.dataset.projectId = "{{ project_id }}";
     document.body.dataset.chartTypeId = "{{ chart_type_id }}";
     document.body.dataset.chartTypeName = "{{ chart_type_name }}";
 </script>
 
-<!-- 引入分离的JS文件 -->
-<script src="/static/js/jquery-3.6.0.min.js"></script>
-<script src="/static/js/select2.min.js"></script>
-<script src="/static/js/utils.js"></script>
 <script src="/static/js/chart_table_detail.js"></script>
 {% endblock %}

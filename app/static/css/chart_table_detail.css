@@ -91,3 +91,43 @@
 #preview-error {
     padding: 2rem 0;
 }
+
+/* 在 chart_table_detail.css 中添加以下样式 */
+/* 新建图表弹窗样式 */
+.step-content {
+    min-height: 300px;
+}
+
+.selected-column {
+    padding: 8px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    min-height: 20px;
+}
+
+.selected-columns {
+    padding: 8px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    min-height: 20px;
+}
+
+.y-axis-item {
+    display: inline-block;
+    margin: 2px;
+    padding: 4px 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+/* 表头表格样式 */
+#headersTableBody td, #headersTableBody th {
+    vertical-align: middle;
+}
+
+#headersTableBody button {
+    margin: 0 2px;
+}

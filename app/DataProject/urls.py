@@ -91,10 +91,6 @@ data_project_bp.route('/api/chart-types/<int:chart_type_id>/charts/paginated',
 data_project_bp.route('/api/projects/<int:project_id>/sheets', methods=['GET'], endpoint='api_project_sheets')(
     func_views.get_project_sheets)
 
-# 生成图表API
-data_project_bp.route('/api/charts/generate', methods=['POST'], endpoint='api_chart_generate')(
-    func_views.generate_chart)
-
 # 数据合并API路由
 data_project_bp.route('/api/project/<int:project_id>/merge-tables', methods=['POST'], endpoint='api_merge_tables')(
     func_views.merge_tables)
@@ -120,15 +116,24 @@ data_project_bp.route('/api/charts/<int:chart_id>', methods=['DELETE'])(
 # 下载指定图
 data_project_bp.route('/api/charts/<int:chart_id>/download', methods=['GET'])(
     func_views.download_chart)
+# 生成图表
+data_project_bp.route('/api/charts/generate', methods=['POST'])(
+    func_views.generate_chart)
 
 # -----------------------------表路由-----------------------------------------
+
 # 获取Sheet的表头信息
 data_project_bp.route('/api/sheets/<int:sheet_id>/headers', methods=['GET'], endpoint='api_sheet_headers')(
     func_views.get_sheet_headers)
 
+# 获取sheet下的页签列表
 data_project_bp.route('/api/sheets/<int:sheet_id>/tables', methods=['GET'], endpoint='api_sheet_tables')(
     func_views.get_tables_by_sheet_id)
 
 # 通过table_id获取表头
 data_project_bp.route('/api/tables/<int:table_id>/headers', methods=['GET'])(
     func_views.get_table_headers_by_table_id)
+
+# -----------------------------项目路由-----------------------------------------
+data_project_bp.route('/api/projects/<int:project_id>/sheet', methods=['GET'])(
+    func_views.get_sheet_by_project_id)

@@ -9,6 +9,20 @@ from app.core.config import config
 
 class ChartUtils:
     @staticmethod
+    def gen_chart(chart_type_id, params):
+        """
+
+        """
+        chart_types = {
+            1: ChartUtils.scatter_chart
+            # 2: 'line',  # 折线图
+            # 3: 'bar',  # 柱状图
+            # 4: 'pie'  # 饼图
+        }
+        return chart_types.get(chart_type_id)(**params)
+
+
+    @staticmethod
     def decide_char(chart_type_id):
         """
         根据图表类型ID决定图表类型字符
@@ -22,10 +36,9 @@ class ChartUtils:
         return chart_types.get(chart_type_id)
 
     @staticmethod
-    def scatter_chart(chart_index, data, x_axis, y_axis, category=None, chart_name="散点图"):
+    def scatter_chart(data, x_axis, y_axis, category=None, chart_name="散点图", **kwargs):
         """
         生成散点图
-        :param chart_index: 图表索引/ID
         :param data: 数据DataFrame
         :param x_axis: X轴字段名
         :param y_axis: Y轴字段名列表
