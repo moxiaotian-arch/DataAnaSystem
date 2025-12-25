@@ -1,5 +1,7 @@
+import base64
 import os
 import json
+import re
 
 from datetime import datetime
 
@@ -1153,132 +1155,6 @@ def create_chart():
         }), 500
 
 
-def get_chart_detail(chart_id):
-    """获取图表详情"""
-    try:
-        print(f"=== 获取图表详情请求 ===")
-        print(f"图表ID: {chart_id}")
-
-        chart = ChartData.query.get(chart_id)
-        if not chart:
-            return jsonify({
-                'success': False,
-                'message': '图表不存在'
-            }), 404
-
-        # 获取图表类型信息
-        chart_type = ChartType.query.get(chart.chart_type_id)
-
-        chart_data = {
-            'id': chart.id,
-            'chart_name': chart.chart_name,
-            'chart_type': chart_type.type_name if chart_type else '未知类型',
-            'file_path': chart.file_path,
-            'create_time': chart.created_at.strftime('%Y-%m-%d %H:%M') if chart.created_at else '未知'
-        }
-
-        return jsonify({
-            'success': True,
-            'chart': chart_data
-        }), 200
-
-    except Exception as e:
-        print(f"获取图表详情时发生异常: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': f'获取图表详情失败: {str(e)}'
-        }), 500
-
-
-def update_chart(chart_id):
-    """更新图表信息（重命名）"""
-    try:
-        print(f"=== 更新图表请求 ===")
-        print(f"图表ID: {chart_id}")
-
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                'success': False,
-                'message': '请求数据不能为空'
-            }), 400
-
-        chart_name = data.get('chart_name', '').strip()
-        if not chart_name:
-            return jsonify({
-                'success': False,
-                'message': '图表名称不能为空'
-            }), 400
-
-        chart = ChartData.query.get(chart_id)
-        if not chart:
-            return jsonify({
-                'success': False,
-                'message': '图表不存在'
-            }), 404
-
-        # 更新图表名称
-        chart.chart_name = chart_name
-        db.session.commit()
-
-        print(f"图表重命名成功: ID={chart_id}, 新名称={chart_name}")
-
-        return jsonify({
-            'success': True,
-            'message': '图表重命名成功',
-            'chart': {
-                'id': chart.id,
-                'name': chart.chart_name
-            }
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"更新图表时发生异常: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': f'更新图表失败: {str(e)}'
-        }), 500
-
-
-def delete_chart(chart_id):
-    """删除图表"""
-    try:
-        print(f"=== 删除图表请求 ===")
-        print(f"图表ID: {chart_id}")
-
-        chart = ChartData.query.get(chart_id)
-        if not chart:
-            return jsonify({
-                'success': False,
-                'message': '图表不存在'
-            }), 404
-
-        chart_name = chart.chart_name
-
-        # 先删除图表-项目关联关系
-        ChartProject.query.filter_by(chart_id=chart_id).delete()
-
-        # 删除图表记录
-        db.session.delete(chart)
-        db.session.commit()
-
-        print(f"图表删除成功: ID={chart_id}, 名称={chart_name}")
-
-        return jsonify({
-            'success': True,
-            'message': '图表删除成功'
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"删除图表时发生异常: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': f'删除图表失败: {str(e)}'
-        }), 500
-
-
 def get_charts_by_type_with_pagination(chart_type_id):
     """根据图表类型ID获取该类型下的图表（带分页）"""
     try:
@@ -1460,7 +1336,7 @@ def get_sheet_headers(sheet_id):
 
 
 def generate_chart():
-    """根据配置生成图表（完整版）"""
+    """根据配置生成图表（修复sheet_id和table_id逻辑）"""
     try:
         print("=== 收到前端图表数据 ===")
 
@@ -1477,8 +1353,8 @@ def generate_chart():
         print("前端发送的数据:")
         print(json.dumps(data, ensure_ascii=False, indent=2))
 
-        # 验证必填字段
-        required_fields = ['project_id', 'chart_type_id', 'sheet_id', 'x_axis', 'y_axis', 'chart_name']
+        # 验证必填字段 - 添加sheet_id和table_id验证
+        required_fields = ['project_id', 'chart_type_id', 'sheet_id', 'table_id', 'x_axis', 'y_axis', 'chart_name']
         for field in required_fields:
             if field not in data or not data[field]:
                 return jsonify({
@@ -1489,27 +1365,22 @@ def generate_chart():
         # 提取参数
         project_id = data['project_id']
         chart_type_id = data['chart_type_id']
-        sheet_id = data['sheet_id']
+        sheet_id = data['sheet_id']  # 真实的sheet ID，用于获取文件路径
+        table_id = data['table_id']  # table ID，用于获取表名
         x_axis = data['x_axis']
         y_axis = data['y_axis']  # 数组
         category = data.get('category')
         chart_name = data['chart_name']
 
         print(f"开始处理图表生成: 项目ID={project_id}, 图表类型ID={chart_type_id}")
+        print(f"Sheet ID: {sheet_id}, Table ID: {table_id}")
 
-        # 1. 验证项目、Sheet、图表类型是否存在
+        # 1. 验证项目、Sheet、Table、图表类型是否存在
         project = DataProject.query.get(project_id)
         if not project:
             return jsonify({
                 'success': False,
                 'message': '项目不存在'
-            }), 404
-
-        sheet = Sheet.query.get(sheet_id)
-        if not sheet or not sheet.file_path or not os.path.exists(sheet.file_path):
-            return jsonify({
-                'success': False,
-                'message': 'Sheet文件不存在'
             }), 404
 
         chart_type = ChartType.query.get(chart_type_id)
@@ -1519,44 +1390,106 @@ def generate_chart():
                 'message': '图表类型不存在'
             }), 404
 
-        # 2. 读取Excel数据
-        print(f"读取Excel文件: {sheet.file_path}")
+        # 验证Sheet是否存在
+        sheet = Sheet.query.get(sheet_id)
+        if not sheet:
+            return jsonify({
+                'success': False,
+                'message': 'Sheet不存在'
+            }), 404
+
+        # 验证Table是否存在
+        table = Table.query.get(table_id)
+        if not table:
+            return jsonify({
+                'success': False,
+                'message': 'Table不存在'
+            }), 404
+
+        # 验证Table是否属于指定的Sheet
+        if table.sheet_id != sheet.id:
+            return jsonify({
+                'success': False,
+                'message': 'Table不属于指定的Sheet'
+            }), 400
+
+        print(f"验证通过: Sheet文件路径={sheet.file_path}, Table名称={table.name}")
+
+        # 2. 读取Excel数据 - 使用table.name作为工作表名称
+        print(f"读取Excel文件: {sheet.file_path}, 工作表: {table.name}")
         try:
-            # 读取所有工作表
-            excel_file = pd.ExcelFile(sheet.file_path)
-            # 使用第一个工作表（可根据需要扩展为选择特定工作表）
-            df = pd.read_excel(sheet.file_path, sheet_name=excel_file.sheet_names[0])
+            # 读取指定工作表
+            df = pd.read_excel(sheet.file_path, sheet_name=table.name)
             print(f"成功读取数据，形状: {df.shape}")
+            print(f"数据列: {list(df.columns)}")
         except Exception as e:
+            print(f"读取Excel文件失败: {str(e)}")
             return jsonify({
                 'success': False,
                 'message': f'读取Excel文件失败: {str(e)}'
             }), 500
 
-        # 3. 生成图表
+        # 3. 验证选择的列是否存在
+        all_columns = list(df.columns)
+        missing_columns = []
+
+        # 检查X轴列
+        if x_axis not in all_columns:
+            missing_columns.append(f"X轴: {x_axis}")
+
+        # 检查Y轴列
+        for y_col in y_axis:
+            if y_col not in all_columns:
+                missing_columns.append(f"Y轴: {y_col}")
+
+        # 检查分类列（如果存在）
+        if category and category not in all_columns:
+            missing_columns.append(f"分类: {category}")
+
+        if missing_columns:
+            return jsonify({
+                'success': False,
+                'message': f'以下列在数据中不存在: {", ".join(missing_columns)}'
+            }), 400
+
+        # 4. 生成图表（这里需要根据您的ChartUtils实现来调整）
         try:
-            # 创建图表对象
+            # 创建图表对象 - 根据您的实际图表生成逻辑调整
+            # 示例：使用散点图
             plt = ChartUtils.scatter_chart(
-                chart_index=0,  # 临时索引，后面会用数据库ID
+                chart_index=0,
                 data=df,
                 x_axis=x_axis,
                 y_axis=y_axis,
                 category=category,
                 chart_name=chart_name
             )
+
+            # 生成图表文件路径
+            chart_file_path = ChartUtils.save_chart(
+                plt=plt,
+                project_id=project_id,
+                chart_type_name=chart_type.type_name,
+                chart_name=chart_name,
+                chart_id=0  # 临时ID，后面会用数据库ID
+            )
+
+            print(f"图表生成成功: {chart_file_path}")
+
         except Exception as e:
+            print(f"生成图表失败: {str(e)}")
             return jsonify({
                 'success': False,
                 'message': f'生成图表失败: {str(e)}'
             }), 500
 
-        # 4. 数据库操作 - 开启事务
+        # 5. 数据库操作 - 开启事务
         try:
             # 创建chart_data记录
             new_chart = ChartData(
                 chart_type_id=chart_type_id,
                 chart_name=chart_name,
-                file_path=None,  # 稍后更新
+                file_path=chart_file_path,
                 created_at=datetime.utcnow()
             )
             db.session.add(new_chart)
@@ -1565,19 +1498,7 @@ def generate_chart():
             chart_id = new_chart.id
             print(f"创建ChartData记录，ID: {chart_id}")
 
-            # 5. 保存图表文件
-            chart_file_path = ChartUtils.save_chart(
-                plt=plt,
-                project_id=project_id,
-                chart_type_name=chart_type.type_name,
-                chart_name=chart_name,
-                chart_id=chart_id
-            )
-
-            # 6. 更新chart_data的文件路径
-            new_chart.file_path = chart_file_path
-
-            # 7. 创建chart_projects关联记录
+            # 创建chart_projects关联记录
             chart_project = ChartProject(
                 chart_id=chart_id,
                 project_id=project_id,
@@ -1590,7 +1511,7 @@ def generate_chart():
 
             print("图表生成和保存完成")
 
-            # 8. 返回成功响应
+            # 返回成功响应
             return jsonify({
                 'success': True,
                 'message': '图表生成成功',
@@ -1677,46 +1598,513 @@ def get_chart_file_path(chart_id):
         return None
 
 
-def download_chart(chart_id):
-    """下载图表文件"""
+# 通过项目ID和图的typeid获取图的列表
+def get_chart_list_by_project_id_or_type_id(project_id):
+    """
+    1、从请求中获取到项目id和图的typeid
+    2、先筛选项目id
+    3、如果存在chart_type_id，则筛选chart_type_id
+    4、使用RequestsUtils.make_response打包返回值
+    """
     try:
-        print(f"=== 图表下载请求 ===")
+        print(f"=== 获取图表列表请求 ===")
+        print(f"项目ID: {project_id}")
+
+        # 1. 从请求参数中获取chart_type_id（可选）
+        chart_type_id = request.args.get('chart_type_id', type=int)
+        print(f"请求参数 - chart_type_id: {chart_type_id}")
+
+        # 2. 验证项目是否存在
+        project = DataProject.query.get(project_id)
+        if not project:
+            print(f"错误: 项目ID {project_id} 不存在")
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='项目不存在',
+                success=False
+            )
+
+        # 3. 构建查询 - 先通过项目ID筛选
+        chart_projects = ChartProject.query.filter_by(project_id=project_id).all()
+        chart_ids = [cp.chart_id for cp in chart_projects]
+
+        if not chart_ids:
+            print(f"项目 {project_id} 下没有图表")
+            return RequestsUtils.make_response(
+                status_code=200,
+                msg='项目下暂无图表',
+                data=[],
+                success=True
+            )
+
+        # 4. 根据chart_type_id进一步筛选
+        if chart_type_id:
+            print(f"按图表类型ID {chart_type_id} 进行筛选")
+            # 验证图表类型是否存在
+            chart_type = ChartType.query.get(chart_type_id)
+            if not chart_type:
+                return RequestsUtils.make_response(
+                    status_code=404,
+                    msg='图表类型不存在',
+                    success=False
+                )
+
+            # 查询指定类型下的图表
+            charts = ChartData.query.filter(
+                ChartData.id.in_(chart_ids),
+                ChartData.chart_type_id == chart_type_id
+            ).all()
+        else:
+            # 查询项目下的所有图表
+            charts = ChartData.query.filter(ChartData.id.in_(chart_ids)).all()
+
+        # 5. 构建返回数据
+        charts_list = []
+        for chart in charts:
+            # 获取图表类型信息
+            chart_type = ChartType.query.get(chart.chart_type_id)
+
+            chart_data = {
+                'id': chart.id,
+                'name': chart.chart_name,
+                'type_id': chart.chart_type_id,
+                'type_name': chart_type.type_name if chart_type else '未知类型',
+                'file_path': chart.file_path,
+                'create_time': chart.created_at.strftime('%Y-%m-%d %H:%M') if chart.created_at else '未知',
+                'project_id': project_id
+            }
+            charts_list.append(chart_data)
+
+        print(f"获取到 {len(charts_list)} 个图表")
+
+        # 6. 使用RequestsUtils.make_response打包返回值
+        return RequestsUtils.make_response(
+            status_code=200,
+            msg='获取图表列表成功',
+            data=charts_list,
+            success=True,
+        )
+
+    except Exception as e:
+        print(f"=== 获取图表列表时发生异常 ===")
+        print(f"错误信息: {str(e)}")
+        import traceback
+        print(f"堆栈跟踪: {traceback.format_exc()}")
+
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'获取图表列表失败: {str(e)}',
+            success=False
+        )
+
+
+# 通过图ID修改图的信息
+def update_chart(chart_id):
+    """
+    通过图ID修改图的信息
+    1、从请求中获取到图ID和要修改的图名
+    2、找到对应图
+    3、当前只允许修改图名
+    4、使用RequestsUtils.make_response打包返回值
+    """
+    try:
+        print(f"=== 更新图表信息请求 ===")
         print(f"图表ID: {chart_id}")
 
-        # 验证图表是否存在
+        # 1. 获取请求数据
+        data = request.get_json()
+        print(f"请求数据: {data}")
+
+        if not data:
+            print("错误: 请求数据为空")
+            return RequestsUtils.make_response(
+                status_code=400,
+                msg='请求数据不能为空',
+                success=False
+            )
+
+        # 2. 验证必填字段
+        chart_name = data.get('chart_name', '').strip()
+        if not chart_name:
+            print("错误: 图表名称不能为空")
+            return RequestsUtils.make_response(
+                status_code=400,
+                msg='图表名称不能为空',
+                success=False
+            )
+
+        # 3. 验证图表是否存在
         chart = ChartData.query.get(chart_id)
         if not chart:
-            return jsonify({
-                'success': False,
-                'message': '图表不存在'
-            }), 404
+            print(f"错误: 图表ID {chart_id} 不存在")
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='图表不存在',
+                success=False
+            )
 
-        # 检查图表文件是否存在
+        # 4. 检查图表名称是否已存在（排除当前图表）
+        existing_chart = ChartData.query.filter(
+            ChartData.chart_name == chart_name,
+            ChartData.id != chart_id
+        ).first()
+        if existing_chart:
+            print(f"错误: 图表名称 '{chart_name}' 已存在")
+            return RequestsUtils.make_response(
+                status_code=400,
+                msg='图表名称已存在',
+                success=False
+            )
+
+        # 5. 保存旧的图表名称用于日志
+        old_name = chart.chart_name
+
+        # 6. 更新图表信息（当前只允许修改图表名称）
+        chart.chart_name = chart_name
+        chart.updated_at = datetime.utcnow()
+
+        # 7. 提交到数据库
+        db.session.commit()
+
+        print(f"图表更新成功: ID={chart_id}, 旧名称='{old_name}' -> 新名称='{chart_name}'")
+
+        # 8. 获取更新后的图表信息
+        chart_type = ChartType.query.get(chart.chart_type_id)
+
+        updated_chart_data = {
+            'id': chart.id,
+            'chart_name': chart.chart_name,
+            'chart_type_id': chart.chart_type_id,
+            'chart_type_name': chart_type.type_name if chart_type else '未知类型',
+            'file_path': chart.file_path,
+            'create_time': chart.created_at.strftime('%Y-%m-%d %H:%M') if chart.created_at else '未知',
+            'update_time': chart.updated_at.strftime('%Y-%m-%d %H:%M') if chart.updated_at else '未知'
+        }
+
+        # 9. 使用RequestsUtils.make_response返回成功响应
+        return RequestsUtils.make_response(
+            status_code=200,
+            msg='图表信息更新成功',
+            data=updated_chart_data,
+            success=True
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"=== 更新图表信息时发生异常 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        import traceback
+        print(f"堆栈跟踪: {traceback.format_exc()}")
+
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'更新图表信息失败: {str(e)}',
+            success=False
+        )
+
+
+# 通过图ID获取图的信息
+def get_chart_by_id(chart_id):
+    """
+    通过图ID获取图的信息
+    1、从请求中获取到图ID
+    2、获取到信息
+    3、使用RequestsUtils.make_response打包返回值
+    """
+    try:
+        print(f"=== 获取图表详情请求 ===")
+        print(f"图表ID: {chart_id}")
+
+        # 1. 验证图表是否存在
+        chart = ChartData.query.get(chart_id)
+        if not chart:
+            print(f"错误: 图表ID {chart_id} 不存在")
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='图表不存在',
+                success=False
+            )
+
+        # 2. 获取图表类型信息
+        chart_type = ChartType.query.get(chart.chart_type_id)
+
+        # 3. 获取图表关联的项目信息
+        chart_project = ChartProject.query.filter_by(chart_id=chart_id).first()
+        project_info = None
+        if chart_project:
+            project = DataProject.query.get(chart_project.project_id)
+            if project:
+                project_info = {
+                    'id': project.id,
+                    'name': project.name
+                }
+
+        # 4. 构建完整的图表信息
+        chart_data = {
+            'id': chart.id,
+            'chart_name': chart.chart_name,
+            'chart_type_id': chart.chart_type_id,
+            'chart_type_name': chart_type.type_name if chart_type else '未知类型',
+            'file_path': chart.file_path,
+            'file_exists': os.path.exists(chart.file_path) if chart.file_path else False,
+            'create_time': chart.created_at.strftime('%Y-%m-%d %H:%M:%S') if chart.created_at else '未知',
+            'update_time': chart.updated_at.strftime('%Y-%m-%d %H:%M:%S') if chart.updated_at else '未知',
+            'project_info': project_info
+        }
+
+        print(f"获取图表详情成功: {chart.chart_name}")
+
+        # 5. 使用RequestsUtils.make_response打包返回值
+        return RequestsUtils.make_response(
+            status_code=200,
+            msg='获取图表详情成功',
+            data=chart_data,
+            success=True
+        )
+
+    except Exception as e:
+        print(f"=== 获取图表详情时发生异常 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        import traceback
+        print(f"堆栈跟踪: {traceback.format_exc()}")
+
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'获取图表详情失败: {str(e)}',
+            success=False
+        )
+
+
+# 通过图ID获取图的信息，并返回前端可以解析的数据
+def get_img_pre_view(chart_id):
+    """
+    通过图ID获取图的地址，并返回图的数据到前端给前端预览
+    1、从请求中获取到图ID
+    2、获取到图路径
+    3、将图片转换为Base64编码返回给前端
+    4、使用RequestsUtils.make_response打包返回值
+    """
+    try:
+        print(f"=== 获取图表预览数据请求 ===")
+        print(f"图表ID: {chart_id}")
+
+        # 1. 验证图表是否存在
+        chart = ChartData.query.get(chart_id)
+        if not chart:
+            print(f"错误: 图表ID {chart_id} 不存在")
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='图表不存在',
+                success=False
+            )
+
+        # 2. 检查图表文件是否存在
         if not chart.file_path or not os.path.exists(chart.file_path):
-            return jsonify({
-                'success': False,
-                'message': '图表文件不存在'
-            }), 404
+            print(f"错误: 图表文件不存在 - {chart.file_path}")
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='图表文件不存在',
+                success=False
+            )
 
-        print(f"准备下载图表文件: {chart.file_path}")
+        print(f"找到图表文件: {chart.file_path}")
 
-        # 获取安全的文件名
-        safe_filename = secure_filename(f"{chart.chart_name}.png")
+        # 3. 读取图片文件并转换为Base64编码
+        try:
+            with open(chart.file_path, 'rb') as image_file:
+                image_data = image_file.read()
+                base64_encoded = base64.b64encode(image_data).decode('utf-8')
 
-        # 返回文件下载
+            # 根据文件扩展名确定MIME类型
+            file_extension = os.path.splitext(chart.file_path)[1].lower()
+            mime_type = 'image/png'  # 默认PNG
+            if file_extension == '.jpg' or file_extension == '.jpeg':
+                mime_type = 'image/jpeg'
+            elif file_extension == '.gif':
+                mime_type = 'image/gif'
+            elif file_extension == '.bmp':
+                mime_type = 'image/bmp'
+            elif file_extension == '.svg':
+                mime_type = 'image/svg+xml'
+
+            # 构建完整的数据URL
+            data_url = f"data:{mime_type};base64,{base64_encoded}"
+
+            print(f"图片转换成功，大小: {len(image_data)} 字节，MIME类型: {mime_type}")
+
+        except Exception as e:
+            print(f"图片文件读取失败: {str(e)}")
+            return RequestsUtils.make_response(
+                status_code=500,
+                msg=f'图片文件读取失败: {str(e)}',
+                success=False
+            )
+
+        # 4. 构建返回数据
+        preview_data = {
+            'chart_id': chart_id,
+            'chart_name': chart.chart_name,
+            'file_path': chart.file_path,
+            'file_size': len(image_data),
+            'mime_type': mime_type,
+            'data_url': data_url,  # 完整的Base64数据URL，前端可以直接用在img标签的src中
+            'base64_data': base64_encoded,  # 单独的Base64数据，供需要的地方使用
+            'preview_available': True
+        }
+
+        print(f"图表预览数据生成成功: {chart.chart_name}")
+
+        # 5. 使用RequestsUtils.make_response打包返回值
+        return RequestsUtils.make_response(
+            status_code=200,
+            msg='获取图表预览数据成功',
+            data=preview_data,
+            success=True
+        )
+
+    except Exception as e:
+        print(f"=== 获取图表预览数据时发生异常 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        import traceback
+        print(f"堆栈跟踪: {traceback.format_exc()}")
+
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'获取图表预览数据失败: {str(e)}',
+            success=False
+        )
+
+
+# 通过图ID删除图
+def delete_chart_by_id(chart_id):
+    """通过图ID删除图表及其关联关系"""
+    try:
+        print(f"=== 删除图表请求 ===")
+        print(f"图表ID: {chart_id}")
+
+        # 1. 查询图表是否存在
+        chart = ChartData.query.get(chart_id)
+        if not chart:
+            print(f"错误: 图表ID {chart_id} 不存在")
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='图表不存在',
+                success=False
+            )
+
+        # 2. 删除关联的 ChartProject 记录
+        chart_projects = ChartProject.query.filter_by(chart_id=chart_id).all()
+        for cp in chart_projects:
+            db.session.delete(cp)
+            print(f"删除图表-项目关联: chart_id={chart_id}, project_id={cp.project_id}")
+
+        # 3. 尝试删除物理文件（如果存在）
+        file_deleted = False
+        if chart.file_path and os.path.exists(chart.file_path):
+            try:
+                os.remove(chart.file_path)
+                file_deleted = True
+                print(f"物理图表文件已删除: {chart.file_path}")
+            except OSError as e:
+                print(f"警告: 无法删除图表文件 {chart.file_path}: {e}")
+
+        # 4. 删除主图表记录
+        db.session.delete(chart)
+        db.session.commit()
+
+        print(f"图表删除成功: ID={chart_id}, 文件删除={'成功' if file_deleted else '跳过'}")
+
+        return RequestsUtils.make_response(
+            status_code=200,
+            msg='图表删除成功',
+            data={
+                'chart_id': chart_id,
+                'file_deleted': file_deleted,
+                'file_path': chart.file_path
+            },
+            success=True
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"=== 删除图表时发生异常 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        import traceback
+        print(f"堆栈跟踪: {traceback.format_exc()}")
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'删除图表失败: {str(e)}',
+            success=False
+        )
+
+
+# 通过图ID下载图
+def download_chart(chart_id):
+    """下载指定图表的文件"""
+    try:
+        print(f"=== 下载图表请求 ===")
+        print(f"图表ID: {chart_id}")
+
+        # 1. 查询图表是否存在
+        chart = ChartData.query.get(chart_id)
+        if not chart:
+            print(f"错误: 图表ID {chart_id} 不存在")
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='图表不存在',
+                success=False
+            )
+
+        # 2. 检查图表文件是否存在
+        if not chart.file_path or not os.path.exists(chart.file_path):
+            print(f"错误: 图表文件不存在 - {chart.file_path}")
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='图表文件不存在',
+                success=False
+            )
+
+        print(f"找到图表文件: {chart.file_path}")
+
+        # 3. 获取文件名（处理中文字符问题）
+        filename = os.path.basename(chart.file_path)
+        # 确保文件名安全（移除非法字符）
+        safe_filename = re.sub(r'[\\/*?:"<>|]', "", filename)
+        if not safe_filename:
+            safe_filename = f"chart_{chart_id}{os.path.splitext(filename)[1]}"
+
+        # 4. 获取文件 MIME 类型
+        file_extension = os.path.splitext(chart.file_path)[1].lower()
+        mime_type = 'application/octet-stream'  # 默认类型
+        if file_extension == '.png':
+            mime_type = 'image/png'
+        elif file_extension in ['.jpg', '.jpeg']:
+            mime_type = 'image/jpeg'
+        elif file_extension == '.gif':
+            mime_type = 'image/gif'
+        elif file_extension == '.svg':
+            mime_type = 'image/svg+xml'
+
+        # 5. 返回文件流（触发浏览器下载）
         return send_file(
             chart.file_path,
-            mimetype='image/png',
+            mimetype=mime_type,
             as_attachment=True,
             download_name=safe_filename
         )
 
     except Exception as e:
-        print(f"=== 图表下载时发生异常 ===")
+        print(f"=== 下载图表时发生异常 ===")
+        print(f"错误类型: {type(e).__name__}")
         print(f"错误信息: {str(e)}")
         import traceback
         print(f"堆栈跟踪: {traceback.format_exc()}")
-        return jsonify({
-            'success': False,
-            'message': f'图表下载失败: {str(e)}'
-        }), 500
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'下载图表失败: {str(e)}',
+            success=False
+        )
