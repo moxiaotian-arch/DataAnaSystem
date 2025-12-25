@@ -91,10 +91,6 @@ data_project_bp.route('/api/chart-types/<int:chart_type_id>/charts/paginated',
 data_project_bp.route('/api/projects/<int:project_id>/sheets', methods=['GET'], endpoint='api_project_sheets')(
     func_views.get_project_sheets)
 
-# 获取Sheet的表头信息
-data_project_bp.route('/api/sheets/<int:sheet_id>/headers', methods=['GET'], endpoint='api_sheet_headers')(
-    func_views.get_sheet_headers)
-
 # 生成图表API
 data_project_bp.route('/api/charts/generate', methods=['POST'], endpoint='api_chart_generate')(
     func_views.generate_chart)
@@ -124,3 +120,15 @@ data_project_bp.route('/api/charts/<int:chart_id>', methods=['DELETE'])(
 # 下载指定图
 data_project_bp.route('/api/charts/<int:chart_id>/download', methods=['GET'])(
     func_views.download_chart)
+
+# -----------------------------表路由-----------------------------------------
+# 获取Sheet的表头信息
+data_project_bp.route('/api/sheets/<int:sheet_id>/headers', methods=['GET'], endpoint='api_sheet_headers')(
+    func_views.get_sheet_headers)
+
+data_project_bp.route('/api/sheets/<int:sheet_id>/tables', methods=['GET'], endpoint='api_sheet_tables')(
+    func_views.get_tables_by_sheet_id)
+
+# 通过table_id获取表头
+data_project_bp.route('/api/tables/<int:table_id>/headers', methods=['GET'])(
+    func_views.get_table_headers_by_table_id)

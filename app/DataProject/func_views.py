@@ -1598,6 +1598,7 @@ def get_chart_file_path(chart_id):
         return None
 
 
+# -----------------------------图方法-----------------------------------------
 # 通过项目ID和图的typeid获取图的列表
 def get_chart_list_by_project_id_or_type_id(project_id):
     """
@@ -2106,5 +2107,139 @@ def download_chart(chart_id):
         return RequestsUtils.make_response(
             status_code=500,
             msg=f'下载图表失败: {str(e)}',
+            success=False
+        )
+
+
+# -----------------------------表的方法-----------------------------------------
+# 通过
+def get_tables_by_sheet_id(sheet_id):
+    """
+    通过sheet_id获取sheet下的tables
+    1、从请求中获取到sheet_id
+    2、从table中获取到sheet_id对应的表
+    3、返回表名的列表
+    4、使用RequestsUtils.make_response打包返回值
+    """
+    try:
+        # 原有逻辑保持不变，但移除手动获取sheet_id的代码
+        print(f"=== 获取工作表下的表格列表 ===")
+        print(f"工作表ID: {sheet_id}")
+
+        # 2. 查询该sheet_id对应的所有表格
+        tables = Table.query.filter_by(sheet_id=sheet_id).all()
+
+        # 3. 构造表名列表（返回表的基本信息）
+        table_list = []
+        for table in tables:
+            table_list.append({
+                'id': table.id,
+                'name': table.name,  # 假设Table模型有name字段
+                'create_time': table.created_at.strftime('%Y-%m-%d %H:%M') if table.created_at else None
+            })
+
+        print(f"找到表格数量: {len(table_list)}")
+
+        # 4. 使用RequestsUtils.make_response打包返回值
+        return RequestsUtils.make_response(
+            status_code=200,
+            msg='获取表格列表成功',
+            data=table_list,
+            success=True
+        )
+
+    except Exception as e:
+        print(f"=== 获取表格列表时发生异常 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        import traceback
+        print(f"堆栈跟踪: {traceback.format_exc()}")
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'获取表格列表失败: {str(e)}',
+            success=False
+        )
+
+
+def get_table_headers_by_table_id(table_id):
+    """
+    通过table_id获取table下的headers
+    1、从请求中获取到table_id
+    2、基于table_id获取对应的table
+    3、基于table获取表头
+    4、使用RequestsUtils.make_response打包返回值
+    """
+    try:
+        print(f"=== 获取表格表头请求 ===")
+        print(f"表格ID: {table_id}")
+
+        # 2. 基于table_id获取对应的table
+        table = Table.query.get(table_id)
+        if not table:
+            print(f"错误: 表格ID {table_id} 不存在")
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='表格不存在',
+                success=False
+            )
+
+        # 获取关联的Sheet信息（用于读取Excel文件）
+        sheet = Sheet.query.get(table.sheet_id)
+        if not sheet or not sheet.file_path or not os.path.exists(sheet.file_path):
+            print(f"错误: 表格 {table.name} 对应的Sheet文件不存在")
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='表格文件不存在',
+                success=False
+            )
+
+        print(f"找到表格: {table.name}, 文件路径: {sheet.file_path}")
+
+        # 3. 基于table获取表头
+        try:
+            # 读取Excel文件中的对应工作表
+            df = pd.read_excel(sheet.file_path, sheet_name=table.name)
+
+            # 获取列名作为表头
+            headers_list = []
+            for col_name in df.columns:
+                headers_list.append({
+                    'name': str(col_name),
+                    'type': str(df[col_name].dtype),
+                    'sample_data': df[col_name].dropna().head(3).tolist() if not df[col_name].dropna().empty else []
+                })
+
+            print(f"获取到表头数量: {len(headers_list)}")
+
+        except Exception as e:
+            print(f"读取表格文件失败: {str(e)}")
+            return RequestsUtils.make_response(
+                status_code=500,
+                msg=f'读取表格文件失败: {str(e)}',
+                success=False
+            )
+
+        # 4. 使用RequestsUtils.make_response打包返回值
+        return RequestsUtils.make_response(
+            status_code=200,
+            msg='获取表头成功',
+            data={
+                'table_id': table.id,
+                'table_name': table.name,
+                'headers': headers_list,
+                'total_headers': len(headers_list)
+            },
+            success=True
+        )
+
+    except Exception as e:
+        print(f"=== 获取表头时发生异常 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        import traceback
+        print(f"堆栈跟踪: {traceback.format_exc()}")
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'获取表头失败: {str(e)}',
             success=False
         )
