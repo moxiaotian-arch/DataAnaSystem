@@ -6,7 +6,8 @@ function loadChartList() {
     // 显示加载状态
     showLoadingState();
 
-    fetch(`/data/api/project/${projectId}/chart`)
+    // 修复：添加 chart_type_id 参数
+    fetch(`/data/api/project/${projectId}/chart?chart_type_id=${chartTypeId}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {

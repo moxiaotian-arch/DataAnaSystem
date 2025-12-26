@@ -14,8 +14,8 @@ class ChartUtils:
 
         """
         chart_types = {
-            1: ChartUtils.scatter_chart
-            # 2: 'line',  # 折线图
+            1: ChartUtils.scatter_chart,
+            2: ChartUtils.line_chart,  # 折线图
             # 3: 'bar',  # 柱状图
             # 4: 'pie'  # 饼图
         }
@@ -29,7 +29,7 @@ class ChartUtils:
         """
         chart_types = {
             1: 'scatter',  # 散点图
-            # 2: 'line',  # 折线图
+            2: 'line',  # 折线图
             # 3: 'bar',  # 柱状图
             # 4: 'pie'  # 饼图
         }
@@ -113,6 +113,97 @@ class ChartUtils:
 
         except Exception as e:
             print(f"生成散点图时出错: {str(e)}")
+            raise
+
+    @staticmethod
+    def line_chart(data, x_axis, y_axis, category=None, chart_name="折线图", **kwargs):
+        """
+        生成折线图（修复版）
+        :param data: 数据DataFrame
+        :param x_axis: X轴字段名
+        :param y_axis: Y轴字段名列表
+        :param category: 分类字段名（可选）
+        :param chart_name: 图表名称
+        :return: 图表对象
+        """
+        try:
+            import numpy as np
+            import pandas as pd
+            import matplotlib.pyplot as plt
+
+            # 设置中文字体
+            plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'SimHei', 'DejaVu Sans']
+            plt.rcParams['axes.unicode_minus'] = False
+
+            # 创建图表
+            plt.figure(figsize=(12, 8))
+
+            # 检查数据列是否存在
+            required_columns = [x_axis] + y_axis
+            if category:
+                required_columns.append(category)
+
+            missing_columns = [col for col in required_columns if col not in data.columns]
+            if missing_columns:
+                raise ValueError(f"以下字段不存在于数据中: {', '.join(missing_columns)}")
+
+            # 清理数据（去除空值）
+            plot_data = data[required_columns].copy().dropna(subset=required_columns)
+            if plot_data.empty:
+                raise ValueError("清理后的数据为空，无法生成图表")
+
+            # 对X轴数据进行排序（折线图需要有序的X轴）
+            plot_data = plot_data.sort_values(by=x_axis)
+
+            # 显式转换为numpy数组避免多维索引问题
+            if category:
+                categories = plot_data[category].unique()
+                colors = plt.cm.Set3(np.linspace(0, 1, len(categories)))
+
+                for i, cat in enumerate(categories):
+                    cat_data = plot_data[plot_data[category] == cat]
+                    x_values = cat_data[x_axis].to_numpy()  # 显式转换为numpy数组
+
+                    for y_col in y_axis:
+                        y_values = cat_data[y_col].to_numpy()  # 显式转换为numpy数组
+                        plt.plot(x_values, y_values,
+                                 color=colors[i],
+                                 marker='o',
+                                 markersize=4,
+                                 linewidth=2,
+                                 label=f'{cat}-{y_col}' if len(y_axis) > 1 else f'{cat}')
+            else:
+                x_values = plot_data[x_axis].to_numpy()  # 显式转换为numpy数组
+                colors = plt.cm.tab10(np.linspace(0, 1, len(y_axis)))
+
+                for i, y_col in enumerate(y_axis):
+                    y_values = plot_data[y_col].to_numpy()  # 显式转换为numpy数组
+                    plt.plot(x_values, y_values,
+                             color=colors[i],
+                             marker='o',
+                             markersize=4,
+                             linewidth=2,
+                             label=y_col)
+
+            # 设置图表属性
+            plt.xlabel(x_axis, fontsize=12)
+            plt.ylabel('值', fontsize=12)
+            plt.title(f'{chart_name}\nX轴: {x_axis}, Y轴: {", ".join(y_axis)}', fontsize=14)
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+
+            # 自动调整刻度标签
+            if pd.api.types.is_datetime64_any_dtype(plot_data[x_axis]):
+                plt.xticks(rotation=45)
+                plt.gcf().autofmt_xdate()
+            else:
+                plt.xticks(rotation=45)
+
+            plt.tight_layout()
+            return plt
+
+        except Exception as e:
+            print(f"生成折线图时出错: {str(e)}")
             raise
 
     @staticmethod
