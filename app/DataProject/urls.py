@@ -137,3 +137,7 @@ data_project_bp.route('/api/tables/<int:table_id>/headers', methods=['GET'])(
 # -----------------------------项目路由-----------------------------------------
 data_project_bp.route('/api/projects/<int:project_id>/sheet', methods=['GET'])(
     func_views.get_sheet_by_project_id)
+
+# -----------------------------数据分析路由-----------------------------------------
+data_project_bp.route('/projects/<int:project_id>/data_ana_view', methods=['GET'])(
+    html_views.data_ana_view)

@@ -26,7 +26,9 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {% block data_analysis_active %}{% endblock %}" href="#">
+                <a class="nav-link {% block data_analysis_active %}{% endblock %}"
+                   href="{% block data_ana_link %}/data/projects/{{ project_id }}/data_ana_view{% endblock %}"
+                   data-page="data-ana">
                     <i class="bi bi-bar-chart"></i> 数据分析
                 </a>
             </li>

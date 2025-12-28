@@ -57,3 +57,9 @@ def chart_table_detail(project_id, chart_type_id):
     except (ValueError, TypeError) as e:
         print(f"参数错误: project_id={project_id}, chart_type_id={chart_type_id}, 错误: {e}")
         return "参数错误", 400
+
+# -----------------------------数据分析页面路由-----------------------------------------
+def data_ana_view(project_id):
+    """数据制图页面"""
+    return render_template('Project_detail/data_ana_detail.html', project_id=project_id)
+
