@@ -98,6 +98,7 @@ class Table(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)  # 创建时间
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # 更新时间
 
+
 # ==================== 新增：图表相关模型 ====================
 class ChartType(db.Model):
     """需求一：图表类型表"""
@@ -147,6 +148,7 @@ class ChartProject(db.Model):
     def __repr__(self):
         return f'<ChartProject chart_id={self.chart_id}, project_id={self.project_id}>'
 
+
 # ====================数据分析相关模型====================
 
 # 定义数据分析数据库模型：分析类型
@@ -168,5 +170,58 @@ class DataAnaType(db.Model):
             'id': self.id,
             'type_name': self.type_name,
             'description': self.description,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class DataAnaModel(db.Model):
+    """数据分析模型表"""
+    __tablename__ = 'data_ana_models'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)  # 模型名称
+    description = db.Column(db.Text)  # 模型描述
+    file_path = db.Column(db.String(500), nullable=False)  # 模型文件路径
+    # 存储相关的表和项目ID，避免外键连表
+    table_id = db.Column(db.Integer, nullable=False)  # 关联的表格ID
+    project_id = db.Column(db.Integer, nullable=False)  # 关联的项目ID
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # 创建时间
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # 更新时间
+
+    def __repr__(self):
+        return f'<DataAnaModel {self.name}>'
+
+    def to_dict(self):
+        """将数据分析模型对象转换为字典"""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'file_path': self.file_path,
+            'table_id': self.table_id,
+            'project_id': self.project_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class DataAnaModelsTypes(db.Model):
+    """数据分析模型与类型关联表（多对多关系）"""
+    __tablename__ = 'data_ana_models_types'
+
+    id = db.Column(db.Integer, primary_key=True)
+    model_id = db.Column(db.Integer, nullable=False)  # 模型ID
+    type_id = db.Column(db.Integer, nullable=False)  # 类型ID
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # 创建时间
+
+    def __repr__(self):
+        return f'<DataAnaModelsTypes model_id={self.model_id}, type_id={self.type_id}>'
+
+    def to_dict(self):
+        """将关系对象转换为字典"""
+        return {
+            'id': self.id,
+            'model_id': self.model_id,
+            'type_id': self.type_id,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

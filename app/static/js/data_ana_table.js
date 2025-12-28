@@ -55,11 +55,6 @@ function renderAnalysisTypes() {
                     <span class="analysis-date">${type.create_time}</span>
                 </div>
             </div>
-            <div class="analysis-type-actions">
-                <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); createNewAnalysis(${type.id})">
-                    <i class="bi bi-plus"></i>
-                </button>
-            </div>
         </div>
     `).join('');
 }
