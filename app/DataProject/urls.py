@@ -141,3 +141,11 @@ data_project_bp.route('/api/projects/<int:project_id>/sheet', methods=['GET'])(
 # -----------------------------数据分析路由-----------------------------------------
 data_project_bp.route('/projects/<int:project_id>/data_ana_view', methods=['GET'])(
     html_views.data_ana_view)
+
+# 获取数据分析类型
+data_project_bp.route('/api/projects/data_ana_types', methods=['GET'])(
+    func_views.get_data_ana_types)
+
+# 新增数据分析类型路由
+data_project_bp.route('/api/projects/data_ana_types', methods=['POST'], endpoint='api_data_ana_types_create')(
+    func_views.post_data_ana_types)

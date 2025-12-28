@@ -147,3 +147,26 @@ class ChartProject(db.Model):
     def __repr__(self):
         return f'<ChartProject chart_id={self.chart_id}, project_id={self.project_id}>'
 
+# ====================数据分析相关模型====================
+
+# 定义数据分析数据库模型：分析类型
+class DataAnaType(db.Model):
+    """需求一：分析类型表"""
+    __tablename__ = 'data_ana_types'
+
+    id = db.Column(db.Integer, primary_key=True)
+    type_name = db.Column(db.String(100), nullable=False, unique=True)  # 类型名
+    description = db.Column(db.Text)  # 类型描述（可选）
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # 创建时间
+
+    def __repr__(self):
+        return f'<DataAnaType {self.type_name}>'
+
+    def to_dict(self):
+        """将图表类型对象转换为字典"""
+        return {
+            'id': self.id,
+            'type_name': self.type_name,
+            'description': self.description,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }

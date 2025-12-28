@@ -61,5 +61,5 @@ def chart_table_detail(project_id, chart_type_id):
 # -----------------------------数据分析页面路由-----------------------------------------
 def data_ana_view(project_id):
     """数据制图页面"""
-    return render_template('Project_detail/data_ana_detail.html', project_id=project_id)
+    return render_template('Project_detail/data_ana_table.html', project_id=project_id)
 

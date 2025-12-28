@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 from app import db
 from .modules import (
     DataProject, ProjectUser, Table, Sheet, SheetProject,
-    ChartData, ChartType, ChartProject
+    ChartData, ChartType, ChartProject, DataAnaType
 )
 from app.user.modules import User  # 导入User模型
 from app.core.config import config  # 导入配置文件
@@ -2245,5 +2245,144 @@ def get_sheet_by_project_id(project_id):
         return RequestsUtils.make_response(
             status_code=500,
             msg=f'获取项目Sheet信息失败: {str(e)}',
+            success=False
+        )
+
+
+# ----------------------------数据分析方法-----------------------------------------
+# 获取数据分析类型
+def get_data_ana_types():
+    """
+    获取数据分析类型列表
+    1、通过 DataAnaType 模型获取数据分析类型
+    2、使用RequestsUtils.make_response打包返回值
+    """
+    try:
+        print("=== 获取数据分析类型列表请求 ===")
+
+        # 1. 从数据库获取所有数据分析类型
+        data_ana_types = DataAnaType.query.all()
+
+        # 2. 构建返回数据列表
+        data_ana_types_list = []
+        for data_ana_type in data_ana_types:
+            # 可以在这里添加统计信息，比如该类型下的分析数量（如果有相关模型）
+            # analysis_count = DataAnalysis.query.filter_by(data_ana_type_id=data_ana_type.id).count() if DataAnalysis存在
+
+            data_ana_types_list.append({
+                'id': data_ana_type.id,
+                'type_name': data_ana_type.type_name,
+                'description': data_ana_type.description,
+                'create_time': data_ana_type.created_at.strftime('%Y-%m-%d') if data_ana_type.created_at else '未知'
+                # 'analysis_count': analysis_count  # 如果有相关模型可以添加计数
+            })
+
+        print(f"获取到 {len(data_ana_types_list)} 个数据分析类型")
+
+        # 3. 使用RequestsUtils.make_response打包返回值
+        return RequestsUtils.make_response(
+            status_code=200,
+            msg='获取数据分析类型列表成功',
+            data=data_ana_types_list,
+            success=True
+        )
+
+    except Exception as e:
+        print(f"=== 获取数据分析类型列表时发生异常 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        import traceback
+        print(f"堆栈跟踪: {traceback.format_exc()}")
+
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'获取数据分析类型列表失败: {str(e)}',
+            success=False
+        )
+
+# 添加数据分析类型方法
+def post_data_ana_types():
+    """
+    新增数据分析类型
+    1、从请求中获取数据分析类型名称和描述
+    2、验证数据有效性
+    3、创建新的数据分析类型记录
+    4、使用RequestsUtils.make_response打包返回值
+    """
+    try:
+        print("=== 新增数据分析类型请求 ===")
+
+        # 1. 获取请求数据
+        data = request.get_json()
+        print(f"请求数据: {data}")
+
+        if not data:
+            print("错误: 请求数据为空")
+            return RequestsUtils.make_response(
+                status_code=400,
+                msg='请求数据不能为空',
+                success=False
+            )
+
+        # 2. 验证必填字段
+        type_name = data.get('type_name', '').strip()
+        description = data.get('description', '').strip()
+
+        if not type_name:
+            print("错误: 数据分析类型名称不能为空")
+            return RequestsUtils.make_response(
+                status_code=400,
+                msg='数据分析类型名称不能为空',
+                success=False
+            )
+
+        # 3. 检查类型名称是否已存在
+        existing_type = DataAnaType.query.filter_by(type_name=type_name).first()
+        if existing_type:
+            print(f"错误: 数据分析类型名称 '{type_name}' 已存在")
+            return RequestsUtils.make_response(
+                status_code=400,
+                msg='数据分析类型名称已存在',
+                success=False
+            )
+
+        # 4. 创建新的数据分析类型
+        new_data_ana_type = DataAnaType(
+            type_name=type_name,
+            description=description
+        )
+
+        db.session.add(new_data_ana_type)
+        db.session.commit()
+
+        print(f"数据分析类型创建成功: ID={new_data_ana_type.id}, 名称={type_name}")
+
+        # 5. 构建返回数据
+        created_type_data = {
+            'id': new_data_ana_type.id,
+            'type_name': new_data_ana_type.type_name,
+            'description': new_data_ana_type.description,
+            'create_time': new_data_ana_type.created_at.strftime('%Y-%m-%d %H:%M:%S') if new_data_ana_type.created_at else '未知'
+        }
+
+        # 6. 使用RequestsUtils.make_response返回成功响应
+        return RequestsUtils.make_response(
+            status_code=201,
+            msg='数据分析类型创建成功',
+            data=created_type_data,
+            success=True
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"=== 新增数据分析类型时发生异常 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        import traceback
+        print(f"堆栈跟踪: {traceback.format_exc()}")
+
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'新增数据分析类型失败: {str(e)}',
             success=False
         )

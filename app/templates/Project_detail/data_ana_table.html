@@ -1,0 +1,133 @@
+{% extends "./Project_detail/base.html" %}
+
+{% block title %}数据分析 - 在线表格数据分析系统{% endblock %}
+
+{% block workspace_name %}数据分析工作台{% endblock %}
+
+{% block data_table_active %}{% endblock %}
+{% block data_analysis_active %}active{% endblock %}
+{% block data_reporting_active %}{% endblock %}
+
+{% block data_table_link %}/data/projects/{{ project_id }}/index{% endblock %}
+{% block data_ana_link %}/data/projects/{{ project_id }}/data_ana_view{% endblock %}
+
+{% block page_title %}数据分析{% endblock %}
+{% block project_name %}项目{{ project_id }}{% endblock %}
+
+{% block project_title %}数据分析管理系统{% endblock %}
+{% block project_description %}创建、管理和分享您的数据分析模型{% endblock %}
+{% block project_stats %}分析总数: <span id="analysis-count">0</span>{% endblock %}
+
+{% block action_buttons %}
+<button class="btn btn-primary" onclick="createAnalysisFolder()">
+    <i class="bi bi-folder-plus me-1"></i>新建文件夹
+</button>
+<button class="btn btn-success" onclick="showCreateAnalysisModal()">
+    <i class="bi bi-plus-circle me-1"></i>新建分析
+</button>
+<button class="btn btn-outline-secondary" onclick="refreshAnalysisData()">
+    <i class="bi bi-arrow-clockwise me-1"></i>刷新
+</button>
+{% endblock %}
+
+{% block main_content %}
+<!-- 数据分析内容 -->
+<div id="data-analysis-content">
+    <div class="content-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">数据分析类型</h5>
+            <div class="analysis-actions">
+                <button class="btn btn-sm btn-outline-primary" onclick="importAnalysisData()">
+                    <i class="bi bi-upload me-1"></i>导入分析
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="exportAllAnalysis()">
+                    <i class="bi bi-download me-1"></i>导出全部
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- 数据分析类型网格 -->
+            <div class="analysis-types-grid" id="analysis-types-grid">
+                <!-- 数据分析类型内容将通过JavaScript动态生成 -->
+            </div>
+
+            <!-- 空状态提示 -->
+            <div class="empty-analysis" id="empty-analysis-message" style="display: none;">
+                <i class="bi bi-inbox"></i>
+                <h4>暂无数据分析类型</h4>
+                <p>暂无数据分析类型，请等待管理员添加</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block footer_mode %}数据分析模式{% endblock %}
+
+<!-- 数据分析类型详情模态框 -->
+<div class="modal fade" id="analysisTypeModal" tabindex="-1" aria-labelledby="analysisTypeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="analysisTypeModalLabel">分析模型列表</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="analysis-list-container">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>分析名称</th>
+                                <th>分析类型</th>
+                                <th>存放地址</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analysis-list-body">
+                            <!-- 分析列表将通过JavaScript动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 分析预览模态框 -->
+<div class="modal fade" id="analysisPreviewModal" tabindex="-1" aria-labelledby="analysisPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="analysisPreviewModalLabel">分析预览</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="analysis-preview-content">
+                    <!-- 分析预览内容将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="downloadCurrentAnalysis()">
+                    <i class="bi bi-download me-1"></i>下载分析结果
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/data_ana_table.css">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 设置当前项目ID
+    window.currentProjectId = {{ project_id }};
+</script>
+<script src="/static/js/data_ana_table.js"></script>
+{% endblock %}
