@@ -76,6 +76,9 @@ function initializeApp() {
     // 初始化数据合并功能
     initializeMergeFunctions();
 
+    // 初始化单sheet导入功能
+    initializeSingleSheetImport();
+
     console.log('应用初始化完成');
 }
 
@@ -1940,3 +1943,294 @@ function initializeMergeFunctions() {
 
 // 在initializeApp函数末尾调用
 // initializeMergeFunctions();
+
+// 导入单sheet数据函数
+async function importSingleSheetData() {
+    try {
+        console.log('开始导入单Sheet数据流程...');
+
+        // 获取当前项目ID
+        const projectId = getCurrentProjectId();
+        if (!projectId || isNaN(projectId)) {
+            showMessage('无法获取有效的项目ID，请刷新页面重试', 'error');
+            return;
+        }
+
+        console.log('项目ID:', projectId);
+
+        // 获取项目下的sheet信息
+        const sheetInfo = await getProjectSheetInfo(projectId);
+        if (!sheetInfo || !sheetInfo.success) {
+            showMessage('获取项目Sheet信息失败: ' + (sheetInfo?.message || '未知错误'), 'error');
+            return;
+        }
+
+        if (!sheetInfo.data || sheetInfo.data.length === 0) {
+            showMessage('当前项目没有可用的Sheet，请先创建工作簿', 'warning');
+            return;
+        }
+
+        // 使用第一个sheet（通常一个项目对应一个sheet）
+        const sheet = sheetInfo.data[0];
+        console.log('找到Sheet:', sheet);
+
+        if (!sheet.file_exists) {
+            showMessage('Sheet文件不存在，无法导入数据', 'error');
+            return;
+        }
+
+        // 显示导入模态框
+        showSingleSheetImportModal(sheet.id, sheet.name);
+
+    } catch (error) {
+        console.error('导入单Sheet数据初始化失败:', error);
+        showMessage(`导入初始化失败: ${error.message}`, 'error');
+    }
+}
+
+async function getProjectSheetInfo(projectId) {
+    try {
+        console.log(`获取项目 ${projectId} 的Sheet信息...`);
+
+        const response = await fetch(`/data/api/projects/${projectId}/sheet`);
+        if (!response.ok) {
+            throw new Error(`HTTP错误! 状态码: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('获取Sheet信息响应:', data);
+        return data;
+
+    } catch (error) {
+        console.error('获取项目Sheet信息失败:', error);
+        throw error;
+    }
+}
+
+// 显示单sheet导入模态框
+function showSingleSheetImportModal(sheetId, sheetName) {
+    const modalHtml = `
+        <div class="modal fade" id="singleSheetImportModal" tabindex="-1" aria-labelledby="singleSheetImportModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="singleSheetImportModalLabel">导入单Sheet数据</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            请选择要导入的Excel文件，数据将追加到当前表格中
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">目标信息</label>
+                            <div class="border p-2 rounded bg-light">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <small class="text-muted">Sheet名称:</small>
+                                        <div>${sheetName}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Sheet ID:</small>
+                                        <div>${sheetId}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="singleSheetFileInput" class="form-label">选择Excel文件</label>
+                            <input class="form-control" type="file" id="singleSheetFileInput" accept=".xlsx,.xls">
+                            <div class="form-text">仅支持.xlsx/.xls格式的Excel文件，文件大小不超过10MB</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="tableNameInput" class="form-label">表格名称（可选）</label>
+                            <input type="text" class="form-control" id="tableNameInput" placeholder="请输入新表格名称，留空将使用文件名">
+                            <div class="form-text">如果留空，将使用Excel文件中的第一个工作表名称</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" id="confirmSingleSheetImportBtn" disabled>
+                            <i class="bi bi-upload me-1"></i>确认导入
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 添加到页面
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const modalElement = document.getElementById('singleSheetImportModal');
+    const importModal = new bootstrap.Modal(modalElement);
+    const fileInput = document.getElementById('singleSheetFileInput');
+    const tableNameInput = document.getElementById('tableNameInput');
+    const confirmBtn = document.getElementById('confirmSingleSheetImportBtn');
+
+    // 文件选择事件
+    fileInput.addEventListener('change', function () {
+        const file = this.files[0];
+        if (file) {
+            const fileName = file.name.toLowerCase();
+            if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                // 文件验证通过
+                if (file.size > 10 * 1024 * 1024) { // 10MB限制
+                    showMessage('文件大小不能超过10MB', 'warning');
+                    this.value = '';
+                    confirmBtn.disabled = true;
+                    return;
+                }
+
+                confirmBtn.disabled = false;
+
+                // 自动填充表格名称（如果没有手动输入）
+                if (!tableNameInput.value.trim()) {
+                    const nameWithoutExt = file.name.replace(/\.(xlsx|xls)$/i, '');
+                    tableNameInput.value = nameWithoutExt;
+                }
+            } else {
+                showMessage('请选择.xlsx或.xls格式的Excel文件', 'warning');
+                this.value = '';
+                confirmBtn.disabled = true;
+            }
+        } else {
+            confirmBtn.disabled = true;
+        }
+    });
+
+    // 确认导入事件
+    confirmBtn.addEventListener('click', function () {
+        const file = fileInput.files[0];
+        if (file) {
+            const tableName = tableNameInput.value.trim();
+            importModal.hide();
+            processSingleSheetImport(file, sheetId, tableName);
+        }
+    });
+
+    // 模态框隐藏后清理
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        this.remove();
+    });
+
+    // 显示模态框
+    importModal.show();
+
+    // 自动聚焦到文件输入框
+    setTimeout(() => {
+        if (fileInput) {
+            fileInput.focus();
+        }
+    }, 500);
+}
+
+async function processSingleSheetImport(file, sheetId, tableName) {
+    try {
+        console.log('开始处理单Sheet数据导入...');
+        console.log('文件:', file.name, 'Sheet ID:', sheetId, '表格名称:', tableName);
+
+        // 显示加载状态
+        showMessage('正在上传Excel文件...', 'info');
+
+        // 直接调用API，不读取文件内容
+        const result = await callSingleSheetImportAPI(sheetId, file, tableName);
+
+        if (result.success) {
+            showMessage(`单Sheet数据导入成功！`, 'success');
+            // 延迟刷新页面，让用户看到成功消息
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            throw new Error(result.message || '导入失败');
+        }
+
+    } catch (error) {
+        console.error('单Sheet数据导入失败:', error);
+        showMessage(`导入失败: ${error.message}`, 'error');
+    }
+}
+
+// 读取Excel文件内容
+function readExcelFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+
+                const result = {
+                    sheets: []
+                };
+
+                // 处理每个工作表
+                workbook.SheetNames.forEach(sheetName => {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    result.sheets.push({
+                        name: sheetName,
+                        data: jsonData
+                    });
+                });
+
+                resolve(result);
+            } catch (error) {
+                reject(new Error(`读取Excel文件失败: ${error.message}`));
+            }
+        };
+
+        reader.onerror = function () {
+            reject(new Error('读取文件时发生错误'));
+        };
+
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+// 调用单sheet导入API
+// 调用单sheet导入API
+async function callSingleSheetImportAPI(sheetId, file, tableName) {
+    console.log(`调用单Sheet导入API: /data/api/tables/${sheetId}/load_sheet_data_to_data`);
+
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('table_name', tableName || '');
+
+        const response = await fetch(`/data/api/tables/${sheetId}/load_sheet_data_to_data`, {
+            method: 'POST',
+            body: formData
+            // 注意：不要设置 Content-Type，让浏览器自动设置 multipart/form-data
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP错误! 状态码: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('API响应:', data);
+        return data;
+
+    } catch (error) {
+        console.error('调用单Sheet导入API失败:', error);
+        throw error;
+    }
+}
+
+// 初始化单sheet导入功能
+function initializeSingleSheetImport() {
+    console.log('单Sheet导入功能已初始化');
+
+    // 可以在这里添加一些全局事件监听或状态初始化
+    // 例如：检查XLSX库是否可用
+    if (typeof XLSX === 'undefined') {
+        console.warn('XLSX库未加载，单Sheet导入功能可能受限');
+    }
+}

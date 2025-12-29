@@ -65,6 +65,10 @@
                 <button type="button" class="btn btn-info" onclick="importTableData()">
                     <i class="bi bi-upload me-1"></i>导入数据
                 </button>
+                <!-- 新增：导入单sheet数据按钮 -->
+                <button type="button" class="btn btn-info" onclick="importSingleSheetData()">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i>导入单Sheet数据
+                </button>
             </div>
 
             <!-- 表格容器 -->
@@ -223,8 +227,10 @@
                     <div class="col-md-4">
                         <h6>操作</h6>
                         <div class="d-grid gap-2">
-                            <button type="button" class="btn btn-outline-primary" id="add-match-column">添加匹配列</button>
-                            <button type="button" class="btn btn-outline-success" id="add-merge-column">添加合并列</button>
+                            <button type="button" class="btn btn-outline-primary" id="add-match-column">添加匹配列
+                            </button>
+                            <button type="button" class="btn btn-outline-success" id="add-merge-column">添加合并列
+                            </button>
                         </div>
                     </div>
                 </div>

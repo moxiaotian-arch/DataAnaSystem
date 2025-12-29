@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 from app import db
 from .modules import (
     DataProject, ProjectUser, Table, Sheet, SheetProject,
-    ChartData, ChartType, ChartProject, DataAnaType
+    ChartData, ChartType, ChartProject, DataAnaType, DataAnaModel, DataAnaModelsTypes
 )
 from app.user.modules import User  # 导入User模型
 from app.core.config import config  # 导入配置文件
@@ -2184,6 +2184,234 @@ def get_table_headers_by_table_id(table_id):
         )
 
 
+# 导入sheet数据
+def load_sheet_data_to_data(sheet_id):
+    """
+    导入sheet数据到现有Excel文件
+    1、从请求中获取到sheet_id、传入的excel文件、table_name
+    2、从sheet_id获取到sheet对象，sheet对象中存在文件路径
+    3、读取sheet_id对应的excel文件，获取sheet名的列表a
+    4、读取传入的excel文件获取sheet名的列表b
+        4.1 遍历b
+            4.1.1、b的sheet名如果在a中，则重命名为sheet_name_1 2 3以此类推，追加为a的新sheet
+            4.1.2、b的sheet名如果不在a中，则正常追加到a的新sheet中
+    5、使用RequestsUtils.make_response打包返回值
+    """
+    try:
+        print(f"=== 导入Sheet数据请求 ===")
+        print(f"目标Sheet ID: {sheet_id}")
+
+        # 1. 验证请求参数和文件
+        if 'file' not in request.files:
+            return RequestsUtils.make_response(
+                status_code=400,
+                msg='没有上传文件',
+                success=False
+            )
+
+        file = request.files['file']
+        if file.filename == '':
+            return RequestsUtils.make_response(
+                status_code=400,
+                msg='没有选择文件',
+                success=False
+            )
+
+        if not file.filename.lower().endswith(('.xlsx', '.xls')):
+            return RequestsUtils.make_response(
+                status_code=400,
+                msg='只支持.xlsx/.xls格式文件',
+                success=False
+            )
+
+        # 获取可选的table_name参数
+        table_name = request.form.get('table_name', '').strip()
+
+        # 2. 从sheet_id获取到sheet对象
+        target_sheet = Sheet.query.get(sheet_id)
+        if not target_sheet:
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='目标Sheet不存在',
+                success=False
+            )
+
+        if not target_sheet.file_path or not os.path.exists(target_sheet.file_path):
+            return RequestsUtils.make_response(
+                status_code=404,
+                msg='目标Sheet文件不存在',
+                success=False
+            )
+
+        print(f"目标Sheet文件: {target_sheet.file_path}")
+        print(f"上传文件名: {file.filename}")
+        print(f"可选表名: {table_name}")
+
+        # 3. 读取目标Excel文件的sheet列表
+        try:
+            target_excel = pd.ExcelFile(target_sheet.file_path)
+            target_sheets = set(target_excel.sheet_names)
+            print(f"目标文件中的Sheet列表: {list(target_sheets)}")
+        except Exception as e:
+            return RequestsUtils.make_response(
+                status_code=500,
+                msg=f'读取目标Excel文件失败: {str(e)}',
+                success=False
+            )
+
+        # 4. 读取上传Excel文件的sheet列表
+        try:
+            # 保存上传的临时文件
+            temp_dir = os.path.join(current_app.config.get('TEMP_DIR', '/tmp'), 'sheet_import')
+            os.makedirs(temp_dir, exist_ok=True)
+
+            temp_file_path = os.path.join(temp_dir,
+                                          f"upload_{datetime.now().strftime('%Y%m%d%H%M%S')}_{secure_filename(file.filename)}")
+            file.save(temp_file_path)
+
+            source_excel = pd.ExcelFile(temp_file_path)
+            source_sheets = source_excel.sheet_names
+            print(f"上传文件中的Sheet列表: {source_sheets}")
+        except Exception as e:
+            return RequestsUtils.make_response(
+                status_code=500,
+                msg=f'读取上传Excel文件失败: {str(e)}',
+                success=False
+            )
+
+        # 5. 使用ExcelWriter来合并文件
+        try:
+            with pd.ExcelWriter(target_sheet.file_path, engine='openpyxl', mode='a',
+                                if_sheet_exists='replace') as writer:
+                # 先读取并保留目标文件的所有现有sheet
+                for sheet_name in target_sheets:
+                    try:
+                        df_existing = pd.read_excel(target_sheet.file_path, sheet_name=sheet_name)
+                        df_existing.to_excel(writer, sheet_name=sheet_name, index=False)
+                        print(f"保留现有Sheet: {sheet_name}")
+                    except Exception as e:
+                        print(f"读取现有Sheet {sheet_name} 失败: {str(e)}")
+                        continue
+
+                # 处理上传文件的每个sheet
+                imported_sheets = []
+                skipped_sheets = []
+
+                for source_sheet_name in source_sheets:
+                    try:
+                        df_source = pd.read_excel(temp_file_path, sheet_name=source_sheet_name)
+
+                        # 确定目标sheet名称
+                        target_sheet_name = source_sheet_name
+                        counter = 1
+
+                        # 检查sheet名是否已存在，如果存在则重命名
+                        while target_sheet_name in target_sheets:
+                            target_sheet_name = f"{source_sheet_name}_{counter}"
+                            counter += 1
+
+                        # 写入数据
+                        df_source.to_excel(writer, sheet_name=target_sheet_name, index=False)
+
+                        if target_sheet_name != source_sheet_name:
+                            print(f"Sheet重命名: {source_sheet_name} -> {target_sheet_name}")
+                            imported_sheets.append({
+                                'original_name': source_sheet_name,
+                                'new_name': target_sheet_name,
+                                'reason': '重命名（名称冲突）'
+                            })
+                        else:
+                            imported_sheets.append({
+                                'original_name': source_sheet_name,
+                                'new_name': target_sheet_name,
+                                'reason': '新增'
+                            })
+
+                        target_sheets.add(target_sheet_name)  # 更新已存在sheet列表
+                        print(f"成功导入Sheet: {source_sheet_name} -> {target_sheet_name}")
+
+                    except Exception as e:
+                        print(f"导入Sheet {source_sheet_name} 失败: {str(e)}")
+                        skipped_sheets.append({
+                            'sheet_name': source_sheet_name,
+                            'reason': str(e)
+                        })
+                        continue
+
+            print("Excel文件合并完成")
+
+            # 6. 更新数据库中的Table记录
+            try:
+                # 删除该sheet下原有的table记录
+                Table.query.filter_by(sheet_id=sheet_id).delete()
+
+                # 重新读取合并后的sheet列表并创建table记录
+                updated_excel = pd.ExcelFile(target_sheet.file_path)
+                for sheet_name in updated_excel.sheet_names:
+                    table = Table(
+                        name=sheet_name,
+                        sheet_id=sheet_id
+                    )
+                    db.session.add(table)
+
+                db.session.commit()
+                print(f"更新数据库Table记录，共{len(updated_excel.sheet_names)}个表")
+
+            except Exception as db_error:
+                db.session.rollback()
+                print(f"更新数据库失败: {str(db_error)}")
+                # 不返回错误，继续执行
+
+            # 清理临时文件
+            try:
+                if os.path.exists(temp_file_path):
+                    os.remove(temp_file_path)
+                    print("临时文件已清理")
+            except Exception as cleanup_error:
+                print(f"清理临时文件失败: {str(cleanup_error)}")
+
+            # 7. 返回成功响应
+            return RequestsUtils.make_response(
+                status_code=200,
+                msg='Sheet数据导入成功',
+                data={
+                    'target_sheet': {
+                        'id': target_sheet.id,
+                        'name': target_sheet.name,
+                        'file_path': target_sheet.file_path
+                    },
+                    'import_results': {
+                        'imported_sheets': imported_sheets,
+                        'skipped_sheets': skipped_sheets,
+                        'total_imported': len(imported_sheets),
+                        'total_skipped': len(skipped_sheets)
+                    },
+                    'final_sheet_count': len(target_sheets)
+                },
+                success=True
+            )
+
+        except Exception as e:
+            return RequestsUtils.make_response(
+                status_code=500,
+                msg=f'Excel文件合并失败: {str(e)}',
+                success=False
+            )
+
+    except Exception as e:
+        print(f"=== 导入Sheet数据时发生异常 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        import traceback
+        print(f"堆栈跟踪: {traceback.format_exc()}")
+
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'导入Sheet数据失败: {str(e)}',
+            success=False
+        )
+
+
 # -----------------------------项目的方法-----------------------------------------
 def get_sheet_by_project_id(project_id):
     """
@@ -2300,6 +2528,7 @@ def get_data_ana_types():
             success=False
         )
 
+
 # 添加数据分析类型方法
 def post_data_ana_types():
     """
@@ -2362,7 +2591,8 @@ def post_data_ana_types():
             'id': new_data_ana_type.id,
             'type_name': new_data_ana_type.type_name,
             'description': new_data_ana_type.description,
-            'create_time': new_data_ana_type.created_at.strftime('%Y-%m-%d %H:%M:%S') if new_data_ana_type.created_at else '未知'
+            'create_time': new_data_ana_type.created_at.strftime(
+                '%Y-%m-%d %H:%M:%S') if new_data_ana_type.created_at else '未知'
         }
 
         # 6. 使用RequestsUtils.make_response返回成功响应
@@ -2384,5 +2614,133 @@ def post_data_ana_types():
         return RequestsUtils.make_response(
             status_code=500,
             msg=f'新增数据分析类型失败: {str(e)}',
+            success=False
+        )
+
+
+# 根据typeid获取数据分析列表
+def get_data_anas():
+    """
+    获取数据分析列表
+    1、从请求中获取数据分析类型id和项目id
+        1.1 如果存在分析类型ID则基于分析类型id筛选
+        1.2 如果不存在分析类型ID则不筛选
+    2、使用RequestsUtils.make_response打包返回值
+    """
+    try:
+        print("=== 获取数据分析列表请求 ===")
+
+        # 1. 从请求参数中获取数据分析类型ID和项目ID
+        data_ana_type_id = request.args.get('type_id', type=int)  # 数据分析类型ID（可选）
+        project_id = request.args.get('project_id', type=int)  # 项目ID（可选）
+
+        print(f"请求参数 - 数据分析类型ID: {data_ana_type_id}, 项目ID: {project_id}")
+
+        # 2. 构建查询条件
+        query = DataAnaModel.query
+
+        # 2.1 如果提供了项目ID，则按项目ID筛选
+        if project_id:
+            # 验证项目是否存在
+            project = DataProject.query.get(project_id)
+            if not project:
+                print(f"错误: 项目ID {project_id} 不存在")
+                return RequestsUtils.make_response(
+                    status_code=404,
+                    msg='项目不存在',
+                    success=False
+                )
+            query = query.filter(DataAnaModel.project_id == project_id)
+            print(f"按项目ID筛选: {project_id}")
+
+        # 2.2 如果提供了数据分析类型ID，则按类型ID筛选
+        if data_ana_type_id:
+            # 验证数据分析类型是否存在
+            data_ana_type = DataAnaType.query.get(data_ana_type_id)
+            if not data_ana_type:
+                print(f"错误: 数据分析类型ID {data_ana_type_id} 不存在")
+                return RequestsUtils.make_response(
+                    status_code=404,
+                    msg='数据分析类型不存在',
+                    success=False
+                )
+
+            # 通过关联表进行筛选
+            analysis_ids_with_type = db.session.query(DataAnaModelsTypes.model_id).filter(
+                DataAnaModelsTypes.type_id == data_ana_type_id
+            ).subquery()
+
+            query = query.filter(DataAnaModel.id.in_(analysis_ids_with_type))
+            print(f"按数据分析类型ID筛选: {data_ana_type_id}")
+
+        # 3. 执行查询并获取结果
+        data_analyses = query.order_by(DataAnaModel.created_at.desc()).all()
+
+        # 4. 构建返回数据列表
+        analyses_list = []
+        for analysis in data_analyses:
+            # 获取关联的数据分析类型
+            analysis_types = DataAnaModelsTypes.query.filter_by(model_id=analysis.id).all()
+            type_ids = [at.type_id for at in analysis_types]
+
+            # 获取类型名称
+            type_names = []
+            for type_id in type_ids:
+                ana_type = DataAnaType.query.get(type_id)
+                if ana_type:
+                    type_names.append(ana_type.type_name)
+
+            # 获取关联的项目信息
+            project = DataProject.query.get(analysis.project_id)
+            project_name = project.name if project else "未知项目"
+
+            # 获取关联的表格信息
+            table = Table.query.get(analysis.table_id)
+            table_name = table.name if table else "未知表格"
+
+            analysis_data = {
+                'id': analysis.id,
+                'name': analysis.name,
+                'description': analysis.description,
+                'file_path': analysis.file_path,
+                'file_exists': os.path.exists(analysis.file_path) if analysis.file_path else False,
+                'project_id': analysis.project_id,
+                'project_name': project_name,
+                'table_id': analysis.table_id,
+                'table_name': table_name,
+                'type_ids': type_ids,
+                'type_names': type_names,
+                'create_time': analysis.created_at.strftime('%Y-%m-%d %H:%M:%S') if analysis.created_at else '未知',
+                'update_time': analysis.updated_at.strftime('%Y-%m-%d %H:%M:%S') if analysis.updated_at else '未知'
+            }
+            analyses_list.append(analysis_data)
+
+        print(f"获取到 {len(analyses_list)} 个数据分析记录")
+
+        # 5. 使用RequestsUtils.make_response打包返回值
+        return RequestsUtils.make_response(
+            status_code=200,
+            msg='获取数据分析列表成功',
+            data={
+                'analyses': analyses_list,
+                'total_count': len(analyses_list),
+                'filters': {
+                    'applied_type_id': data_ana_type_id,
+                    'applied_project_id': project_id
+                }
+            },
+            success=True
+        )
+
+    except Exception as e:
+        print(f"=== 获取数据分析列表时发生异常 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        import traceback
+        print(f"堆栈跟踪: {traceback.format_exc()}")
+
+        return RequestsUtils.make_response(
+            status_code=500,
+            msg=f'获取数据分析列表失败: {str(e)}',
             success=False
         )

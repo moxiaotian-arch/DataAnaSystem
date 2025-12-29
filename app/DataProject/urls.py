@@ -134,6 +134,10 @@ data_project_bp.route('/api/sheets/<int:sheet_id>/tables', methods=['GET'], endp
 data_project_bp.route('/api/tables/<int:table_id>/headers', methods=['GET'])(
     func_views.get_table_headers_by_table_id)
 
+data_project_bp.route('/api/tables/<int:sheet_id>/load_sheet_data_to_data', methods=['post'])(
+    func_views.load_sheet_data_to_data
+)
+
 # -----------------------------项目路由-----------------------------------------
 data_project_bp.route('/api/projects/<int:project_id>/sheet', methods=['GET'])(
     func_views.get_sheet_by_project_id)
@@ -149,3 +153,7 @@ data_project_bp.route('/api/projects/data_ana_types', methods=['GET'])(
 # 新增数据分析类型路由
 data_project_bp.route('/api/projects/data_ana_types', methods=['POST'], endpoint='api_data_ana_types_create')(
     func_views.post_data_ana_types)
+
+# 新增数据分析列表路由
+data_project_bp.route('/api/projects/data_anas', methods=['POST'])(
+    func_views.get_data_anas)
